@@ -1,56 +1,51 @@
-# Welcome to your Expo app 👋
+# Potto
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Shared money for trips, events, and group funds.
 
-## Get started
-
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+potto/
+├── mobile/     # Expo React Native app
+├── web/        # Next.js web app
+├── backend/    # Supabase (migrations, schema, RPCs)
+└── docs/       # Shared documentation
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Quick start — Web
 
-### Other setup steps
+```bash
+cd web
+cp .env.example .env.local   # add Supabase URL + anon key
+npm install
+npm run dev
+```
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+See [`web/README.md`](web/README.md) and [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
-## Learn more
+## Quick start — Mobile
 
-To learn more about developing your project with Expo, look at the following resources:
+```bash
+cd mobile
+npm install
+npx expo start
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+The mobile app currently uses an in-memory store with seed data. The same Supabase backend is designed for both clients.
 
-## Join the community
+## Backend (Supabase)
 
-Join our community of developers creating universal apps.
+Migrations live in [`backend/supabase/migrations/`](backend/supabase/migrations/).
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```bash
+cd backend
+# with Supabase CLI linked to your project:
+supabase db push
+```
+
+## Documentation
+
+- [Mobile audit](docs/AUDIT.md)
+- [Feature inventory](docs/FEATURE_INVENTORY.md)
+- [Data model](docs/DATA_MODEL.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Feature parity](docs/PARITY.md)
+- [Deployment](docs/DEPLOYMENT.md)

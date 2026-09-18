@@ -1,0 +1,54 @@
+@import "tailwindcss";
+
+:root {
+  --ink: #1c1b19;
+  --ink-soft: #6b6862;
+  --paper: #f6f3ec;
+  --surface: #ffffff;
+  --surface-sunk: #efebe1;
+  --line: #e4decf;
+  --accent: #1f5f4e;
+  --accent-soft: #dceae4;
+  --pos: #2e7d5b;
+  --pos-soft: #e2f1e8;
+  --neg: #c1552f;
+  --neg-soft: #fbeae1;
+  --gold: #b8892b;
+  --gold-soft: #f3e7c9;
+  --radius-sm: 9px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --background: var(--paper);
+  --foreground: var(--ink);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-surface-sunk: var(--surface-sunk);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-pos: var(--pos);
+  --color-pos-soft: var(--pos-soft);
+  --color-neg: var(--neg);
+  --color-neg-soft: var(--neg-soft);
+  --color-gold: var(--gold);
+  --color-gold-soft: var(--gold-soft);
+  --font-sans: var(--font-body);
+  --font-display: var(--font-display);
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body), system-ui, sans-serif;
+}
+
+h1, h2, h3, .font-display {
+  font-family: var(--font-display), Georgia, serif;
+}
