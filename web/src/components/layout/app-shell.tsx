@@ -1,6 +1,8 @@
 import Link from 'next/link';
-import { signOut } from '@/lib/actions/auth';
-import { Button } from '@/components/ui/button';
+import Image from 'next/image';
+import pottoIcon from '@/assets/web-icon-assets/icon-192.png';
+import { NotificationBell } from '@/components/layout/notification-bell';
+import { UserMenu } from '@/components/layout/user-menu';
 
 export function AppShell({
   children,
@@ -15,19 +17,13 @@ export function AppShell({
     <div className="min-h-screen bg-paper">
       <header className="sticky top-0 z-40 border-b border-line/80 bg-paper/90 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-          <Link href="/" className="font-display text-2xl font-semibold text-accent">
+          <Link href="/" className="flex items-center gap-2.5 font-display text-2xl font-semibold text-accent">
+            <Image src={pottoIcon} alt="" width={32} height={32} priority />
             Potto
           </Link>
-          <div className="flex items-center gap-3">
-            <div className="hidden text-right text-sm sm:block">
-              <p className="font-medium text-ink">{userName ?? 'Member'}</p>
-              {userEmail ? <p className="text-xs text-ink-soft">{userEmail}</p> : null}
-            </div>
-            <form action={signOut}>
-              <Button type="submit" variant="outline" size="sm">
-                Sign out
-              </Button>
-            </form>
+          <div className="flex items-center gap-1 sm:gap-2">
+            <NotificationBell />
+            <UserMenu userName={userName} userEmail={userEmail} />
           </div>
         </div>
       </header>

@@ -20,8 +20,10 @@ export default function CreatePotScreen() {
   const [contribution, setContribution] = useState('');
   const [expectedContribution, setExpectedContribution] = useState('');
   const [nameError, setNameError] = useState<string | undefined>();
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | undefined>();
 
-  const submit = () => {
+  const submit = async () => {
     const trimmed = name.trim();
     if (!trimmed) {
       setNameError('Enter a pot name');
@@ -31,14 +33,24 @@ export default function CreatePotScreen() {
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean);
-    const potId = createPot({
-      name: trimmed,
-      description: description.trim() || undefined,
-      memberNames,
-      startingContribution: contribution ? toPaise(parseFloat(contribution) || 0) : undefined,
-      expectedContributionPerMember: expectedContribution ? toPaise(parseFloat(expectedContribution) || 0) : undefined,
-    });
-    router.replace(`/pot/${potId}`);
+    setSubmitting(true);
+    setSubmitError(undefined);
+    try {
+      const potId = await createPot({
+        name: trimmed,
+        description: description.trim() || undefined,
+        memberNames,
+        startingContribution: contribution ? toPaise(parseFloat(contribution) || 0) : undefined,
+        expectedContributionPerMember: expectedContribution
+          ? toPaise(parseFloat(expectedContribution) || 0)
+          : undefined,
+      });
+      router.replace(`/pot/${potId}`);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Could not create pot');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -92,7 +104,14 @@ export default function CreatePotScreen() {
           </Field>
 
           <View style={styles.actions}>
-            <PrimaryButton label="Create Pot" onPress={submit} fullWidth />
+            {!!submitError && <Text style={[styles.error, { color: colors.neg, marginBottom: 10 }]}>{submitError}</Text>}
+            <PrimaryButton
+              label={submitting ? 'Creating…' : 'Create Pot'}
+              onPress={submit}
+              loading={submitting}
+              disabled={submitting}
+              fullWidth
+            />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

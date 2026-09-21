@@ -1,5 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActionMenu } from '@/components/potto/ActionMenu';
@@ -23,6 +24,7 @@ import {
 } from '@/logic/commitments';
 import { canAddExpense, canAddMoney, canManageMembers } from '@/logic/permissions';
 import { usePottoStore } from '@/store/PottoStore';
+import { useToast } from '@/store/ToastContext';
 import { formatDate, formatMoney } from '@/utils/money';
 
 const displayFont = Platform.OS === 'web' ? undefined : PottoFonts.display;
@@ -30,8 +32,28 @@ const displayFont = Platform.OS === 'web' ? undefined : PottoFonts.display;
 export default function PotDashboardScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = usePottoColors();
-  const { getPot, getTransactions, getCurrentMember, getJoinRequests, getCommitments, getCommitmentPayments } =
-    usePottoStore();
+  const { showToast } = useToast();
+  const {
+    getPot,
+    getTransactions,
+    getCurrentMember,
+    getJoinRequests,
+    getCommitments,
+    getCommitmentPayments,
+    reloadWorkspace,
+  } = usePottoStore();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await reloadWorkspace();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not refresh');
+    } finally {
+      setRefreshing(false);
+    }
+  }, [reloadWorkspace, showToast]);
 
   const pot = getPot(id);
   const txs = getTransactions(id);
@@ -39,7 +61,22 @@ export default function PotDashboardScreen() {
   if (!pot) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.paper }]}>
-        <EmptyState icon="❓" title="Pot not found" subtitle="This pot may have been removed." />
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.accent}
+              colors={[colors.accent]}
+            />
+          }>
+          <EmptyState
+            icon="❓"
+            title="Pot not found"
+            subtitle="This pot may have been removed. Pull down to refresh."
+          />
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -83,7 +120,17 @@ export default function PotDashboardScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.paper }]} edges={['top']}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scroll}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.accent}
+            colors={[colors.accent]}
+          />
+        }>
         <View style={styles.topbar}>
           <Pressable onPress={() => router.back()} style={[styles.iconBtn, { borderColor: colors.line, backgroundColor: colors.surface }]}>
             <Text style={{ color: colors.ink, fontSize: 18 }}>{'←'}</Text>

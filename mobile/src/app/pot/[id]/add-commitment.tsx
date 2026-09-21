@@ -57,7 +57,7 @@ function CommitmentForm({ potId, editingCommitment }: { potId: string; editingCo
   const [titleError, setTitleError] = useState<string | undefined>();
   const [amountError, setAmountError] = useState<string | undefined>();
 
-  const submit = () => {
+  const submit = async () => {
     if (!title.trim()) {
       setTitleError('Enter a title');
       return;
@@ -81,8 +81,8 @@ function CommitmentForm({ potId, editingCommitment }: { potId: string; editingCo
 
     const result =
       isEdit && editingCommitment
-        ? updateCommitment(potId, editingCommitment.id, payload)
-        : createCommitment({ potId, ...payload });
+        ? await updateCommitment(potId, editingCommitment.id, payload)
+        : await createCommitment({ potId, ...payload });
 
     if (!result.ok) {
       setAmountError(result.reason);

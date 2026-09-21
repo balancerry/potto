@@ -48,7 +48,7 @@ export default function EditSettlementScreen() {
 
   const amountPaise = toPaise(parseFloat(amount) || 0);
 
-  const submit = () => {
+  const submit = async () => {
     const parties = validateSettlementParties(pot.members, fromMemberId, toMemberId);
     if (!parties.valid) {
       setError(parties.error);
@@ -60,16 +60,20 @@ export default function EditSettlementScreen() {
     }
     setError(undefined);
 
-    updateSettlement(id, tx.id, {
-      fromMemberId,
-      toMemberId,
-      amount: amountPaise,
-      date,
-      paymentMethod,
-      note: note.trim() || undefined,
-    });
-    showToast('Settlement updated');
-    router.back();
+    try {
+      await updateSettlement(id, tx.id, {
+        fromMemberId,
+        toMemberId,
+        amount: amountPaise,
+        date,
+        paymentMethod,
+        note: note.trim() || undefined,
+      });
+      showToast('Settlement updated');
+      router.back();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save settlement');
+    }
   };
 
   return (

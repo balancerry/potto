@@ -1,9 +1,11 @@
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { PotNav } from '@/components/pot/pot-nav';
+import { PotPageSkeleton } from '@/components/pot/pot-page-skeleton';
 import { Badge } from '@/components/ui/badge';
 import { isAdmin } from '@/lib/core/logic/permissions';
-import { getPotBundle } from '@/lib/queries/pots';
+import { getPotShell } from '@/lib/queries/pots';
 
 export default async function PotLayout({
   children,
@@ -13,10 +15,10 @@ export default async function PotLayout({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const bundle = await getPotBundle(id);
-  if (!bundle) notFound();
+  const shell = await getPotShell(id);
+  if (!shell) notFound();
 
-  const { pot, currentMember } = bundle;
+  const { pot, currentMember } = shell;
   const admin = isAdmin(currentMember ?? undefined);
 
   return (
@@ -36,7 +38,7 @@ export default async function PotLayout({
         </div>
         <PotNav potId={id} isAdmin={admin} />
       </div>
-      {children}
+      <Suspense fallback={<PotPageSkeleton />}>{children}</Suspense>
     </div>
   );
 }

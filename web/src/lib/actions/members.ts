@@ -79,6 +79,7 @@ export async function approveExistingMember(input: {
   potId: string;
   joinRequestId: string;
   memberId: string;
+  displayName: string;
   accessLevel: 'member' | 'view_only';
 }): Promise<ActionResult<{ memberId: string }>> {
   try {
@@ -87,6 +88,7 @@ export async function approveExistingMember(input: {
         potId: z.string().uuid(),
         joinRequestId: z.string().uuid(),
         memberId: z.string().uuid(),
+        displayName: z.string().trim().min(1, 'Enter a display name'),
         accessLevel: accessLevelSchema,
       })
       .parse(input);
@@ -100,7 +102,7 @@ export async function approveExistingMember(input: {
     const { data, error } = await auth.supabase.rpc('approve_join_request', {
       p_join_request_id: parsed.joinRequestId,
       p_target_member_id: parsed.memberId,
-      p_new_member_display_name: null,
+      p_new_member_display_name: parsed.displayName,
       p_access_level: parsed.accessLevel,
     });
 
@@ -209,6 +211,46 @@ export async function removeMember(potId: string, memberId: string): Promise<Act
 
     revalidatePotPaths(potId);
     return actionOk();
+  } catch (err) {
+    return actionFail(err);
+  }
+}
+
+export async function updateMember(input: {
+  potId: string;
+  memberId: string;
+  role?: 'admin' | 'member';
+  accessLevel?: 'member' | 'view_only';
+  displayName?: string;
+}): Promise<ActionResult<{ memberId: string }>> {
+  try {
+    const parsed = z
+      .object({
+        potId: z.string().uuid(),
+        memberId: z.string().uuid(),
+        role: z.enum(['admin', 'member']).optional(),
+        accessLevel: accessLevelSchema.optional(),
+        displayName: z.string().trim().min(1).optional(),
+      })
+      .parse(input);
+
+    const auth = await requireUser();
+    if (!auth.user) return actionFail(auth.error);
+
+    const me = await getCurrentMember(auth.supabase, parsed.potId, auth.user.id);
+    if (!canManageMembers(me)) return actionFail('You do not have permission to do that');
+
+    const { data, error } = await auth.supabase.rpc('update_pot_member', {
+      p_member_id: parsed.memberId,
+      p_role: parsed.role ?? null,
+      p_access_level: parsed.accessLevel ?? null,
+      p_display_name: parsed.displayName ?? null,
+    });
+    if (error) return actionFail(error);
+
+    const member = data ? mapMember(data as MemberRow) : null;
+    revalidatePotPaths(parsed.potId);
+    return actionOk({ memberId: member?.id ?? parsed.memberId });
   } catch (err) {
     return actionFail(err);
   }

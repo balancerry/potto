@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { LinkPendingHint, useIsLinkPending } from '@/components/ui/link-pending';
 import { cn } from '@/lib/utils';
 
 const LINKS = [
@@ -14,6 +15,16 @@ const LINKS = [
   { href: '/summary', label: 'Summary', match: 'exact' as const },
   { href: '/settings', label: 'Settings', match: 'exact' as const, adminOnly: true },
 ];
+
+function NavLinkLabel({ label }: { label: string }) {
+  const pending = useIsLinkPending();
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      {label}
+      {pending ? <LinkPendingHint className="size-3" /> : null}
+    </span>
+  );
+}
 
 export function PotNav({ potId, isAdmin }: { potId: string; isAdmin: boolean }) {
   const pathname = usePathname();
@@ -31,12 +42,13 @@ export function PotNav({ potId, isAdmin }: { potId: string; isAdmin: boolean }) 
           <Link
             key={href}
             href={href}
+            prefetch
             className={cn(
               'shrink-0 rounded-[var(--radius-sm)] px-3 py-1.5 text-sm font-medium transition-colors',
               active ? 'bg-accent text-white' : 'text-ink-soft hover:bg-surface-sunk hover:text-ink',
             )}
           >
-            {link.label}
+            <NavLinkLabel label={link.label} />
           </Link>
         );
       })}

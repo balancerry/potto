@@ -68,9 +68,9 @@ export default function CommitmentDetailScreen() {
   const canEdit = canEditCommitment(me, commitment);
   const canPay = canAddCommitmentPayment(me) && status !== 'cancelled' && remaining > 0;
 
-  const confirmCancel = () => {
+  const confirmCancel = async () => {
     setConfirmVisible(false);
-    const result = cancelCommitment(id, commitment.id);
+    const result = await cancelCommitment(id, commitment.id);
     if (result.ok) {
       showToast('Upcoming Payment cancelled');
     } else {

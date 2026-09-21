@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { approveExistingMember, approveNewMember, rejectJoinRequest } from '@/lib/actions/members';
@@ -33,6 +33,21 @@ export function JoinRequestReview({
   const [accessLevel, setAccessLevel] = useState<'member' | 'view_only'>('member');
   const [loading, setLoading] = useState(false);
 
+  const selectedMember = unlinked.find((m) => m.id === memberId);
+
+  useEffect(() => {
+    if (mode !== 'existing') return;
+    // Prefer requested name so admin can keep "Sunil" when linking to "SK".
+    setDisplayName(request.requestedName);
+  }, [mode, memberId, request.requestedName]);
+
+  const nameSuggestions = useMemo(() => {
+    const names = [request.requestedName, selectedMember?.name].filter(
+      (n): n is string => Boolean(n && n.trim()),
+    );
+    return [...new Set(names.map((n) => n.trim()))];
+  }, [request.requestedName, selectedMember?.name]);
+
   if (request.status !== 'pending') {
     return (
       <Card>
@@ -46,6 +61,11 @@ export function JoinRequestReview({
   }
 
   async function onApprove() {
+    const name = displayName.trim();
+    if (!name) {
+      toast.error('Enter a display name');
+      return;
+    }
     setLoading(true);
     const result =
       mode === 'existing'
@@ -53,12 +73,13 @@ export function JoinRequestReview({
             potId,
             joinRequestId: request.id,
             memberId,
+            displayName: name,
             accessLevel,
           })
         : await approveNewMember({
             potId,
             joinRequestId: request.id,
-            displayName: displayName.trim(),
+            displayName: name,
             accessLevel,
           });
     setLoading(false);
@@ -102,7 +123,10 @@ export function JoinRequestReview({
         <Button
           size="sm"
           variant={mode === 'new' ? 'primary' : 'outline'}
-          onClick={() => setMode('new')}
+          onClick={() => {
+            setMode('new');
+            setDisplayName(request.requestedName);
+          }}
         >
           Create new
         </Button>
@@ -125,12 +149,34 @@ export function JoinRequestReview({
             ))}
           </select>
         </div>
-      ) : (
-        <div className="mt-4">
-          <Label htmlFor="displayName">Display name</Label>
-          <Input id="displayName" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
-        </div>
-      )}
+      ) : null}
+
+      <div className="mt-4">
+        <Label htmlFor="displayName">Display name in this pot</Label>
+        <Input
+          id="displayName"
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
+          placeholder="How this person should appear"
+        />
+        {nameSuggestions.length > 0 ? (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {nameSuggestions.map((name) => (
+              <button
+                key={name}
+                type="button"
+                className="rounded-full border border-line bg-surface-sunk px-3 py-1 text-xs font-medium text-ink hover:border-accent hover:text-accent"
+                onClick={() => setDisplayName(name)}
+              >
+                Use “{name}”
+              </button>
+            ))}
+          </div>
+        ) : null}
+        <p className="mt-2 text-xs text-ink-soft">
+          Choose the requester’s name, the existing member name, or type something else.
+        </p>
+      </div>
 
       <div className="mt-4">
         <Label htmlFor="access">Access level</Label>
@@ -146,7 +192,10 @@ export function JoinRequestReview({
       </div>
 
       <div className="mt-6 flex flex-wrap gap-2">
-        <Button onClick={() => void onApprove()} disabled={loading || (mode === 'existing' && !memberId)}>
+        <Button
+          onClick={() => void onApprove()}
+          disabled={loading || !displayName.trim() || (mode === 'existing' && !memberId)}
+        >
           {loading ? 'Working…' : 'Approve'}
         </Button>
         <Button variant="danger" onClick={() => void onReject()} disabled={loading}>

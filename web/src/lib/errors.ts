@@ -37,6 +37,18 @@ export function friendlyError(err: unknown): string {
   if (msg.includes('already linked to another account')) {
     return 'That member is already linked to another account';
   }
+  if (msg.includes('cannot demote the last admin')) {
+    return 'This pot needs at least one admin';
+  }
+  if (msg.includes('not authorized to manage members')) {
+    return 'You do not have permission to do that';
+  }
+  if (msg.includes('member is not active')) {
+    return 'That member is not active';
+  }
+  if (msg.includes('member not found')) {
+    return 'Member not found';
+  }
   if (msg.includes('display name is required')) {
     return 'Enter a display name for the new member';
   }
@@ -69,6 +81,44 @@ export function friendlyError(err: unknown): string {
   }
   if (msg.includes('network') || msg.includes('fetch')) {
     return 'Network error. Check your connection and try again';
+  }
+
+  if (msg.includes('invalid login credentials') || msg.includes('invalid credentials')) {
+    return 'Incorrect email or password';
+  }
+  if (msg.includes('email not confirmed')) {
+    return 'Confirm your email before signing in. Check your inbox for a verification link.';
+  }
+  if (msg.includes('user already registered') || msg.includes('already been registered')) {
+    return 'An account with this email already exists. Sign in instead.';
+  }
+  if (msg.includes('signups not allowed') || msg.includes('otp_disabled')) {
+    return 'Could not send a magic link for this email. Try signing in with your password.';
+  }
+  if (
+    msg.includes('user not found') ||
+    msg.includes('unable to validate email') ||
+    (msg.includes('otp') && msg.includes('not'))
+  ) {
+    return 'No account found for that email. Create an account first.';
+  }
+  if (msg.includes('rate limit') || msg.includes('too many requests') || msg.includes('over_email_send_rate')) {
+    return 'Too many requests. Wait a minute and try again.';
+  }
+  if (
+    msg.includes('error sending confirmation email') ||
+    msg.includes('error sending magic link') ||
+    msg.includes('error sending recovery email') ||
+    msg.includes('could not send email') ||
+    msg.includes('domain is not verified')
+  ) {
+    return 'Could not send the email. Resend needs a verified domain to deliver to this address (or use the email on your Resend account for testing).';
+  }
+  if (msg.includes('same password') || msg.includes('should be different')) {
+    return 'Choose a new password that is different from your current one.';
+  }
+  if (msg.includes('password') && msg.includes('least')) {
+    return `Password must be at least ${8} characters`;
   }
 
   // Truncate overly long Postgres dumps for the UI.

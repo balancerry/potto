@@ -22,19 +22,13 @@ export default async function InvitePage({ params }: { params: Promise<{ id: str
     );
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
-
   return (
     <div className="space-y-6">
       <div>
         <h2 className="font-display text-2xl font-semibold text-ink">Invite people</h2>
-        <p className="mt-1 text-sm text-ink-soft">Share a link or join code. Admins approve requests.</p>
+        <p className="mt-1 text-sm text-ink-soft">Share the join code or QR. Admins approve requests.</p>
       </div>
-      <InvitePanel
-        pot={bundle.pot}
-        isAdmin={isAdmin(bundle.currentMember ?? undefined)}
-        siteUrl={siteUrl}
-      />
+      <InvitePanel pot={bundle.pot} isAdmin={isAdmin(bundle.currentMember ?? undefined)} />
     </div>
   );
 }

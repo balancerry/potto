@@ -63,11 +63,15 @@ export default function TransactionDetailScreen() {
   const contextLine = tx.type === 'settlement' ? `${memberName(tx.paidBy)} → ${memberName(tx.toMember)}` : tx.description;
   const confirmDeleteMessage = `This will permanently remove:\n\n${contextLine}\n${formatMoney(tx.amount)}\n${formatDateFull(tx.date)}\n\nYour Pot balances will be recalculated.`;
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     setConfirmVisible(false);
-    deleteTransaction(id, tx.id);
-    showToast('Transaction deleted');
-    router.back();
+    try {
+      await deleteTransaction(id, tx.id);
+      showToast('Transaction deleted');
+      router.back();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not delete transaction');
+    }
   };
 
   const menuItems = [

@@ -63,18 +63,22 @@ export default function SettleScreen() {
   };
   const closeModal = () => setActiveTransfer(null);
 
-  const confirmPayment = (paidPaise: number, paymentMethod: PaymentMethod | undefined, note: string | undefined) => {
+  const confirmPayment = async (paidPaise: number, paymentMethod: PaymentMethod | undefined, note: string | undefined) => {
     if (!activeTransfer) return;
-    recordSettlement({
-      potId: id,
-      fromMemberId: activeTransfer.from,
-      toMemberId: activeTransfer.to,
-      amount: paidPaise,
-      paymentMethod,
-      note,
-    });
-    showToast(paidPaise >= activeTransfer.amount ? 'Settlement completed' : 'Partial payment recorded');
-    setActiveTransfer(null);
+    try {
+      await recordSettlement({
+        potId: id,
+        fromMemberId: activeTransfer.from,
+        toMemberId: activeTransfer.to,
+        amount: paidPaise,
+        paymentMethod,
+        note,
+      });
+      showToast(paidPaise >= activeTransfer.amount ? 'Settlement completed' : 'Partial payment recorded');
+      setActiveTransfer(null);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not record settlement');
+    }
   };
 
   const goAddToPool = (amountPaise: number) => {

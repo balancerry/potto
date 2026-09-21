@@ -107,7 +107,9 @@ export async function deletePot(potId: string): Promise<ActionResult> {
     const me = await getCurrentMember(auth.supabase, potId, auth.user.id);
     assertAdmin(me);
 
-    const { error } = await auth.supabase.from('pots').delete().eq('id', potId);
+    // Ordered server-side delete — plain pots.delete() fails FK checks on
+    // transaction_splits / transactions.created_by when members cascade first.
+    const { error } = await auth.supabase.rpc('delete_pot', { p_pot_id: potId });
     if (error) return actionFail(error);
 
     revalidatePotPaths(potId);

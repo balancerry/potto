@@ -21,11 +21,21 @@ export const metadata: Metadata = {
     template: '%s · Potto',
   },
   description: 'Shared money for trips, events, and group funds. Transparent pool, expenses, and settlements.',
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/icon-192.png', type: 'image/png', sizes: '192x192' },
+      { url: '/icon-512.png', type: 'image/png', sizes: '512x512' },
+    ],
+    apple: [{ url: '/apple-touch-icon.png', type: 'image/png', sizes: '180x180' }],
+  },
+  manifest: '/manifest.webmanifest',
   openGraph: {
     title: 'Potto',
     description: 'Shared money for trips, events, and group funds.',
     siteName: 'Potto',
     type: 'website',
+    images: [{ url: '/icon-512.png', width: 512, height: 512, alt: 'Potto' }],
   },
 };
 

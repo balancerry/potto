@@ -113,6 +113,21 @@ Normalized PostgreSQL model for shared mobile + web backend.
 | amount | bigint | Snapshot at link time |
 | created_at | timestamptz | |
 
+### `notifications`
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | |
+| user_id | uuid → users CASCADE | Recipient |
+| pot_id | uuid → pots CASCADE nullable | Related pot |
+| type | text | `join_request_pending` \| `join_request_approved` \| `join_request_rejected` \| `transaction_created` |
+| title | text NOT NULL | |
+| body | text NOT NULL | |
+| data | jsonb | Deep-link payload (`join_request_id`, `transaction_id`, …) |
+| read_at | timestamptz nullable | Null = unread |
+| created_at | timestamptz | |
+
+**Created by triggers** on `join_requests` / `transactions`. Clients subscribe via Supabase Realtime. RPCs: `mark_notification_read`, `mark_all_notifications_read`.
+
 ## Derived (not stored)
 
 - Pool balance, total spent, member balances, settlement suggestions
@@ -126,6 +141,7 @@ Normalized PostgreSQL model for shared mobile + web backend.
 users ──┬── pot_members ──┬── transactions ── transaction_splits
         │                 │         │
         │                 │         └── commitment_payments ── commitments
-        └── join_requests ┘
+        ├── join_requests ┘
+        └── notifications
               pots ──────────┘
 ```

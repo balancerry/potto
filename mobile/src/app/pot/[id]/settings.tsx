@@ -40,21 +40,31 @@ export default function PotSettingsScreen() {
     );
   }
 
-  const saveDetails = () => {
+  const saveDetails = async () => {
     if (!name.trim()) return;
-    updatePotDetails(pot.id, {
-      name: name.trim(),
-      description: description.trim() || undefined,
-      expectedContributionPerMember: expectedContribution.trim() ? toPaise(parseFloat(expectedContribution) || 0) : null,
-    });
-    showToast('Pot updated');
+    try {
+      await updatePotDetails(pot.id, {
+        name: name.trim(),
+        description: description.trim() || undefined,
+        expectedContributionPerMember: expectedContribution.trim()
+          ? toPaise(parseFloat(expectedContribution) || 0)
+          : null,
+      });
+      showToast('Pot updated');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not update pot');
+    }
   };
 
-  const confirmArchive = () => {
-    archivePot(pot.id);
-    setConfirmArchiveVisible(false);
-    showToast('Pot archived');
-    router.replace('/');
+  const confirmArchive = async () => {
+    try {
+      await archivePot(pot.id);
+      setConfirmArchiveVisible(false);
+      showToast('Pot archived');
+      router.replace('/');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not archive pot');
+    }
   };
 
   return (

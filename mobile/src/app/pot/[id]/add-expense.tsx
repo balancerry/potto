@@ -122,7 +122,7 @@ function ExpenseForm({
 
   const amountPaise = toPaise(parseFloat(amount) || 0);
 
-  const submit = () => {
+  const submit = async () => {
     if (!description.trim()) {
       setDescriptionError('Enter a description');
       return;
@@ -153,14 +153,18 @@ function ExpenseForm({
     };
 
     if (isEdit && editingTx) {
-      updateExpense(potId, editingTx.id, payload);
-      showToast('Changes saved');
-      router.back();
+      try {
+        await updateExpense(potId, editingTx.id, payload);
+        showToast('Changes saved');
+        router.back();
+      } catch (err) {
+        setAmountError(err instanceof Error ? err.message : 'Could not save changes');
+      }
       return;
     }
 
     if (commitmentLink.mode === 'link') {
-      const result = addCommitmentPayment({ potId, commitmentId: commitmentLink.commitmentId, ...payload });
+      const result = await addCommitmentPayment({ potId, commitmentId: commitmentLink.commitmentId, ...payload });
       if (!result.ok) {
         setCommitmentLinkError(result.reason);
         return;
@@ -171,7 +175,7 @@ function ExpenseForm({
     }
 
     if (commitmentLink.mode === 'create') {
-      const result = createCommitmentWithPayment({
+      const result = await createCommitmentWithPayment({
         potId,
         commitment: {
           title: commitmentLink.title,
@@ -191,9 +195,13 @@ function ExpenseForm({
       return;
     }
 
-    addExpense({ potId, ...payload });
-    showToast('Expense saved');
-    router.back();
+    try {
+      await addExpense({ potId, ...payload });
+      showToast('Expense saved');
+      router.back();
+    } catch (err) {
+      setAmountError(err instanceof Error ? err.message : 'Could not save expense');
+    }
   };
 
   const paidByName = pot.members.find((m) => m.id === paidBy)?.name ?? '';

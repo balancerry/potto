@@ -119,7 +119,7 @@ function CreateContributionForm({
 
   const total = entries.reduce((sum, e) => sum + e.amount, 0);
 
-  const submit = () => {
+  const submit = async () => {
     if (selectedIds.length === 0) {
       setError('Select at least one member');
       return;
@@ -137,15 +137,18 @@ function CreateContributionForm({
       }
     }
     setError(undefined);
-
-    addMoney({
-      potId,
-      date,
-      note: note.trim() || undefined,
-      entries,
-    });
-    showToast(entries.length > 1 ? `${entries.length} contributions added` : 'Money added');
-    router.back();
+    try {
+      await addMoney({
+        potId,
+        date,
+        note: note.trim() || undefined,
+        entries,
+      });
+      showToast(entries.length > 1 ? `${entries.length} contributions added` : 'Money added');
+      router.back();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not add money');
+    }
   };
 
   const amountLabel = mode === 'same' ? (amountMode === 'total' ? 'Total amount' : 'Amount per member') : undefined;
@@ -267,7 +270,7 @@ function EditContributionForm({ potId, tx }: { potId: string; tx: Transaction })
 
   if (!pot) return null;
 
-  const submit = () => {
+  const submit = async () => {
     const paise = toPaise(parseFloat(amount) || 0);
     if (!amount || paise <= 0) {
       setError('Enter an amount greater than zero');
@@ -277,14 +280,18 @@ function EditContributionForm({ potId, tx }: { potId: string; tx: Transaction })
       setError('Select a member');
       return;
     }
-    updateContribution(potId, tx.id, {
-      memberId,
-      amount: paise,
-      date,
-      note: note.trim() || undefined,
-    });
-    showToast('Changes saved');
-    router.back();
+    try {
+      await updateContribution(potId, tx.id, {
+        memberId,
+        amount: paise,
+        date,
+        note: note.trim() || undefined,
+      });
+      showToast('Changes saved');
+      router.back();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save changes');
+    }
   };
 
   return (

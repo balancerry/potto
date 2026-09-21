@@ -8,39 +8,51 @@ import { Chip } from '@/components/potto/Chip';
 import { QRScanner } from '@/components/potto/QRScanner';
 import { ScreenHeader } from '@/components/potto/ScreenHeader';
 import { Radius, usePottoColors } from '@/constants/potto-theme';
+import { resolveJoinCodeRemote } from '@/lib/api/resolve';
 import { normalizeJoinCodeInput, parseJoinCodePayload } from '@/logic/invites';
-import { resolveJoinCode } from '@/logic/join-requests';
-import { usePottoStore } from '@/store/PottoStore';
 
 type Mode = 'code' | 'scan';
 
-const ERROR_COPY: Record<'invalid' | 'disabled' | 'archived', string> = {
-  invalid: "This code doesn't match an active Pot.",
-  disabled: 'This Join Code has been disabled by the admin.',
-  archived: 'This Pot is archived and no longer accepting new members.',
-};
-
 /**
- * NEW zero-cost join entry point (manual code entry / QR scan). The existing
- * invite-link flow (src/app/join/[code].tsx) is completely separate and
- * unaffected — this screen only ever resolves via resolveJoinCode, never
- * inviteCode, and funnels into the same JoinPotFlow/join-request system.
+ * Join via 6-character code or QR. Resolves against Supabase (same as web),
+ * not the local workspace — so pots the user is not yet a member of still work.
  */
 export default function JoinPotEntryScreen() {
   const colors = usePottoColors();
-  const { state } = usePottoStore();
   const [mode, setMode] = useState<Mode>('code');
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | undefined>();
+  const [loading, setLoading] = useState(false);
 
-  const tryResolve = (rawCode: string) => {
-    const resolution = resolveJoinCode(state.pots, rawCode);
-    if (!resolution.ok) {
-      setError(ERROR_COPY[resolution.reason]);
+  const tryResolve = async (rawCode: string) => {
+    const normalized = normalizeJoinCodeInput(rawCode);
+    if (normalized.length !== 6) {
+      setError('Enter a 6-character Join Code');
       return;
     }
+
+    setLoading(true);
     setError(undefined);
-    router.push(`/join-pot/${resolution.pot.id}`);
+    try {
+      const pot = await resolveJoinCodeRemote(normalized);
+      if (!pot) {
+        setError("This code doesn't match an active Pot.");
+        return;
+      }
+      if (pot.status === 'archived') {
+        setError('This Pot is archived and no longer accepting new members.');
+        return;
+      }
+      if (!pot.enabled) {
+        setError('This Join Code has been disabled by the admin.');
+        return;
+      }
+      router.push(`/join-pot/${pot.id}?code=${encodeURIComponent(normalized)}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not look up that code');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const onScanned = (data: string) => {
@@ -49,7 +61,7 @@ export default function JoinPotEntryScreen() {
       setError('Not a valid Potto QR code.');
       return;
     }
-    tryResolve(parsed.code);
+    void tryResolve(parsed.code);
   };
 
   return (
@@ -92,7 +104,13 @@ export default function JoinPotEntryScreen() {
               style={[styles.codeInput, { borderColor: colors.line, backgroundColor: colors.surfaceSunk, color: colors.ink }]}
             />
             <View style={styles.actions}>
-              <PrimaryButton label="Continue" onPress={() => tryResolve(code)} fullWidth disabled={code.length !== 6} />
+              <PrimaryButton
+                label={loading ? 'Looking up…' : 'Continue'}
+                onPress={() => void tryResolve(code)}
+                fullWidth
+                disabled={code.length !== 6 || loading}
+                loading={loading}
+              />
             </View>
           </>
         ) : (
@@ -104,7 +122,7 @@ export default function JoinPotEntryScreen() {
         {!!error && <Text style={[styles.error, { color: colors.neg }]}>{error}</Text>}
 
         <Text style={[styles.helper, { color: colors.inkSoft }]}>
-          A Join Code is a short, typeable alternative to an invite link — it works the same way and always needs admin approval.
+          Enter the 6-character Join Code or scan the QR. Every request still needs admin approval.
         </Text>
       </View>
     </SafeAreaView>
