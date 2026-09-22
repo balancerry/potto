@@ -9,15 +9,13 @@ import { useAuth } from '@/store/AuthContext';
 
 export default function LoginScreen() {
   const colors = usePottoColors();
-  const { session, signInWithPassword, signInWithMagicLink } = useAuth();
+  const { session, signInWithPassword } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [magicLoading, setMagicLoading] = useState(false);
-  const [magicSent, setMagicSent] = useState(false);
 
   if (session) return <Redirect href="/" />;
 
@@ -34,32 +32,6 @@ export default function LoginScreen() {
       setLoading(false);
     }
   };
-
-  const onMagic = async () => {
-    setFormError(null);
-    setMagicLoading(true);
-    try {
-      const result = await signInWithMagicLink(email);
-      if (!result.ok) {
-        setFormError(result.error);
-        setEmailError(result.error);
-        return;
-      }
-      setMagicSent(true);
-    } finally {
-      setMagicLoading(false);
-    }
-  };
-
-  if (magicSent) {
-    return (
-      <AuthShell
-        title="Check your email"
-        subtitle={`We sent a magic link to ${email.trim()}. Open it on this device to finish signing in.`}>
-        <PrimaryButton label="Back to sign in" onPress={() => setMagicSent(false)} fullWidth />
-      </AuthShell>
-    );
-  }
 
   return (
     <AuthShell title="Welcome back" subtitle="Sign in with the same Potto account you use on the web.">
@@ -111,16 +83,6 @@ export default function LoginScreen() {
           </Text>
         </Pressable>
       </Link>
-
-      <View style={{ height: 1, backgroundColor: colors.line, marginVertical: 8 }} />
-
-      <PrimaryButton
-        label={magicLoading ? 'Sending link…' : 'Email me a magic link'}
-        onPress={onMagic}
-        loading={magicLoading}
-        disabled={magicLoading || loading}
-        fullWidth
-      />
 
       <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 12 }}>
         <Text style={{ color: colors.inkSoft }}>Don&apos;t have an account?</Text>

@@ -1,14 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useRouter, useSegments } from 'expo-router';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { useRootNavigationState, useRouter, useSegments } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
+import { InteractionManager, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { usePottoColors } from '@/constants/potto-theme';
+import { BrandSplashLockup } from '@/components/animated-icon';
+import { PottoPalette, usePottoColors } from '@/constants/potto-theme';
 import { useAuth } from '@/store/AuthContext';
 import { usePottoStore } from '@/store/PottoStore';
 
 /**
- * Restores session → hydrates shared Supabase workspace → routes auth vs app.
- * Clears local pot state on sign-out so accounts never leak.
+ * Restores session → hydrates workspace → routes auth vs app.
+ * Opaque splash stays up until the destination route has settled, so the
+ * pots home screen cannot flash before login.
  */
 export function AuthBootstrap({ children }: { children: React.ReactNode }) {
   const colors = usePottoColors();
@@ -16,8 +19,22 @@ export function AuthBootstrap({ children }: { children: React.ReactNode }) {
   const { hydrateWorkspace, clearWorkspace, state } = usePottoStore();
   const segments = useSegments();
   const router = useRouter();
+  const navState = useRootNavigationState();
   const hydratedFor = useRef<string | null>(null);
+  const nativeSplashHidden = useRef(false);
   const [bootError, setBootError] = useState<string | null>(null);
+  const [splashVisible, setSplashVisible] = useState(true);
+
+  const navReady = !!navState?.key;
+  const root = typeof segments[0] === 'string' ? segments[0] : '';
+  const inAuthGroup = root === '(auth)' || root === 'auth';
+  const authScreen = typeof segments[1] === 'string' ? segments[1] : '';
+  const allowWhileAuthed =
+    authScreen === 'complete-signup' ||
+    authScreen === 'reset-password' ||
+    authScreen === 'set-password' ||
+    authScreen === 'callback' ||
+    root === 'auth';
 
   useEffect(() => {
     if (authLoading) return;
@@ -69,9 +86,7 @@ export function AuthBootstrap({ children }: { children: React.ReactNode }) {
   ]);
 
   useEffect(() => {
-    if (authLoading) return;
-    const root = segments[0];
-    const inAuthGroup = root === '(auth)' || root === 'auth';
+    if (authLoading || !navReady) return;
 
     if (!session) {
       if (!inAuthGroup) {
@@ -80,46 +95,77 @@ export function AuthBootstrap({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const screen = typeof segments[1] === 'string' ? segments[1] : '';
-    const allowWhileAuthed =
-      screen === 'complete-signup' ||
-      screen === 'reset-password' ||
-      screen === 'set-password' ||
-      screen === 'callback' ||
-      root === 'auth';
-
     if (inAuthGroup && !allowWhileAuthed && state.ready) {
       router.replace('/');
     }
-  }, [authLoading, session, segments, router, state.ready]);
+  }, [authLoading, navReady, session, inAuthGroup, allowWhileAuthed, state.ready, router]);
 
-  if (authLoading || (session && !state.ready && !bootError)) {
-    return (
-      <View style={[styles.boot, { backgroundColor: colors.paper }]}>
-        <ActivityIndicator color={colors.accent} size="large" />
-      </View>
-    );
-  }
+  const destinationReady =
+    !authLoading &&
+    navReady &&
+    !bootError &&
+    ((!session && inAuthGroup) || (!!session && state.ready && (!inAuthGroup || allowWhileAuthed)));
+
+  useEffect(() => {
+    if (!destinationReady) {
+      setSplashVisible(true);
+      return;
+    }
+
+    let cancelled = false;
+    const task = InteractionManager.runAfterInteractions(() => {
+      // One extra frame after nav settles so the stack transition cannot peek through.
+      requestAnimationFrame(() => {
+        if (!cancelled) setSplashVisible(false);
+      });
+    });
+
+    return () => {
+      cancelled = true;
+      task.cancel();
+    };
+  }, [destinationReady]);
+
+  useEffect(() => {
+    if (!splashVisible || nativeSplashHidden.current) return;
+    nativeSplashHidden.current = true;
+    void SplashScreen.hideAsync();
+  }, [splashVisible]);
 
   if (bootError && session) {
     return (
       <View style={[styles.boot, { backgroundColor: colors.paper, padding: 24 }]}>
         <Text style={{ color: colors.neg, textAlign: 'center', marginBottom: 12 }}>{bootError}</Text>
-        <Text
-          style={{ color: colors.accent, fontWeight: '600' }}
+        <Pressable
           onPress={() => {
             hydratedFor.current = null;
             setBootError(null);
           }}>
-          Tap to retry
-        </Text>
+          <Text style={{ color: colors.accent, fontWeight: '600', textAlign: 'center' }}>Tap to retry</Text>
+        </Pressable>
       </View>
     );
   }
 
-  return <>{children}</>;
+  return (
+    <View style={styles.root}>
+      {children}
+      {splashVisible ? (
+        <View style={[styles.splashOverlay, { backgroundColor: PottoPalette.light.paper }]} pointerEvents="auto">
+          <BrandSplashLockup />
+        </View>
+      ) : null}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1 },
   boot: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  splashOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
+  },
 });

@@ -1,135 +1,51 @@
-import { Image } from 'expo-image';
-import * as SplashScreen from 'expo-splash-screen';
-import { useState } from 'react';
-import { Dimensions, StyleSheet, View } from 'react-native';
-import Animated, { Easing, Keyframe } from 'react-native-reanimated';
-import { scheduleOnRN } from 'react-native-worklets';
+import { StyleSheet, Text, View } from 'react-native';
 
-const INITIAL_SCALE_FACTOR = Dimensions.get('screen').height / 90;
-const DURATION = 600;
-const BRAND_GREEN = '#044A36';
+import { PottoPalette } from '@/constants/potto-theme';
 
-export function AnimatedSplashOverlay() {
-  const [animate, setAnimate] = useState(false);
-  const [visible, setVisible] = useState(true);
+const WORDMARK = PottoPalette.light.accent;
+const TAGLINE = '#5F6F66';
 
-  if (!visible) return null;
-
-  const splashKeyframe = new Keyframe({
-    0: {
-      transform: [{ scale: 1 }],
-      opacity: 1,
-    },
-    20: {
-      opacity: 1,
-    },
-    70: {
-      opacity: 0,
-      easing: Easing.elastic(0.7),
-    },
-    100: {
-      opacity: 0,
-      transform: [{ scale: 1 }],
-      easing: Easing.elastic(0.7),
-    },
-  });
-
-  const image = <Image style={styles.splashImage} source={require('@/assets/icons/app-mark.png')} />;
-
-  return animate ? (
-    <Animated.View
-      entering={splashKeyframe.duration(DURATION).withCallback((finished) => {
-        'worklet';
-        if (finished) {
-          scheduleOnRN(setVisible, false);
-        }
-      })}
-      style={styles.splashOverlay}>
-      {image}
-    </Animated.View>
-  ) : (
-    <View
-      onLayout={() => {
-        SplashScreen.hideAsync().finally(() => {
-          setAnimate(true);
-        });
-      }}
-      style={styles.splashOverlay}>
-      {image}
+/** Brand lockup used on launch splash / auth boot gate. */
+export function BrandSplashLockup() {
+  return (
+    <View style={styles.lockup}>
+      <Text style={styles.wordmark}>potto</Text>
+      <Text style={styles.tagline}>Your group. Your money. One Pot.</Text>
+      <View style={styles.dash} />
     </View>
   );
 }
 
-const keyframe = new Keyframe({
-  0: {
-    transform: [{ scale: INITIAL_SCALE_FACTOR }],
-  },
-  100: {
-    transform: [{ scale: 1 }],
-    easing: Easing.elastic(0.7),
-  },
-});
-
-const logoKeyframe = new Keyframe({
-  0: {
-    transform: [{ scale: 1.3 }],
-    opacity: 0,
-  },
-  40: {
-    transform: [{ scale: 1.3 }],
-    opacity: 0,
-    easing: Easing.elastic(0.7),
-  },
-  100: {
-    opacity: 1,
-    transform: [{ scale: 1 }],
-    easing: Easing.elastic(0.7),
-  },
-});
-
-export function AnimatedIcon() {
-  return (
-    <View style={styles.iconContainer}>
-      <Animated.View entering={keyframe.duration(DURATION)} style={styles.background} />
-      <Animated.View style={styles.imageContainer} entering={logoKeyframe.duration(DURATION)}>
-        <Image style={styles.image} source={require('@/assets/icons/app-mark.png')} />
-      </Animated.View>
-    </View>
-  );
+/** @deprecated Splash is gated by AuthBootstrap — kept for web stub exports. */
+export function AnimatedSplashOverlay() {
+  return null;
 }
 
 const styles = StyleSheet.create({
-  imageContainer: {
-    justifyContent: 'center',
+  lockup: {
     alignItems: 'center',
+    paddingHorizontal: 32,
   },
-  iconContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 128,
-    height: 128,
-    zIndex: 100,
+  wordmark: {
+    fontSize: 48,
+    fontWeight: '800',
+    letterSpacing: -1,
+    color: WORDMARK,
+    textTransform: 'lowercase',
   },
-  image: {
-    width: 128,
-    height: 128,
+  tagline: {
+    marginTop: 14,
+    fontSize: 16,
+    fontWeight: '400',
+    letterSpacing: 0.2,
+    color: TAGLINE,
+    textAlign: 'center',
   },
-  splashImage: {
-    width: 120,
-    height: 120,
-  },
-  background: {
-    borderRadius: 64,
-    backgroundColor: BRAND_GREEN,
-    width: 128,
-    height: 128,
-    position: 'absolute',
-  },
-  splashOverlay: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: BRAND_GREEN,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000,
+  dash: {
+    marginTop: 22,
+    width: 36,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: WORDMARK,
   },
 });

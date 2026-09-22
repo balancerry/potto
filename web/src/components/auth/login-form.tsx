@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import {
   requestPasswordReset,
-  signInWithMagicLink,
   signInWithPassword,
   signUpWithPassword,
 } from '@/lib/actions/auth';
@@ -25,7 +24,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardDescription, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
-type Mode = 'signin' | 'signup' | 'magic' | 'forgot' | 'sent';
+type Mode = 'signin' | 'signup' | 'forgot' | 'sent';
 
 const RESEND_COOLDOWN_SEC = 45;
 
@@ -52,7 +51,6 @@ export function LoginForm() {
   const [confirmError, setConfirmError] = useState<string | null>(null);
 
   const [sentEmail, setSentEmail] = useState('');
-  const [sentKind, setSentKind] = useState<'magic' | 'reset'>('magic');
   const [cooldown, setCooldown] = useState(0);
 
   useEffect(() => {
@@ -65,8 +63,6 @@ export function LoginForm() {
     switch (mode) {
       case 'signup':
         return 'Create account';
-      case 'magic':
-        return 'Magic link';
       case 'forgot':
         return 'Forgot password';
       case 'sent':
@@ -136,26 +132,6 @@ export function LoginForm() {
     });
   }
 
-  function onMagicLink(e: React.FormEvent) {
-    e.preventDefault();
-    const eErr = validateEmail(email);
-    setEmailError(eErr);
-    if (eErr) return;
-
-    startTransition(async () => {
-      const result = await signInWithMagicLink({ email, next, offerSetPassword: true });
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      setSentEmail(normalizeEmail(email));
-      setSentKind('magic');
-      setCooldown(RESEND_COOLDOWN_SEC);
-      setMode('sent');
-      toast.success('Magic link sent — check your inbox.');
-    });
-  }
-
   function onForgot(e: React.FormEvent) {
     e.preventDefault();
     const eErr = validateEmail(email);
@@ -169,7 +145,6 @@ export function LoginForm() {
         return;
       }
       setSentEmail(normalizeEmail(email));
-      setSentKind('reset');
       setCooldown(RESEND_COOLDOWN_SEC);
       setMode('sent');
       toast.success('If an account exists, a reset link is on the way.');
@@ -179,27 +154,14 @@ export function LoginForm() {
   function onResend() {
     if (cooldown > 0 || pending) return;
 
-    if (sentKind === 'reset') {
-      startTransition(async () => {
-        const result = await requestPasswordReset({ email: sentEmail });
-        if (!result.ok) {
-          toast.error(result.error);
-          return;
-        }
-        setCooldown(RESEND_COOLDOWN_SEC);
-        toast.success('Reset link resent.');
-      });
-      return;
-    }
-
     startTransition(async () => {
-      const result = await signInWithMagicLink({ email: sentEmail, next, offerSetPassword: true });
+      const result = await requestPasswordReset({ email: sentEmail });
       if (!result.ok) {
         toast.error(result.error);
         return;
       }
       setCooldown(RESEND_COOLDOWN_SEC);
-      toast.success('Magic link resent.');
+      toast.success('Reset link resent.');
     });
   }
 
@@ -208,18 +170,11 @@ export function LoginForm() {
       <Card className="w-full max-w-md">
         <CardTitle>Check your email</CardTitle>
         <CardDescription>
-          We sent a link to <strong className="text-ink">{sentEmail}</strong>
-          {sentKind === 'reset'
-            ? '. Open it to choose a new password.'
-            : '. Open it on this device to sign in.'}
+          We sent a link to <strong className="text-ink">{sentEmail}</strong>. Open it to choose a new
+          password.
         </CardDescription>
         <div className="mt-6 flex flex-col gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={pending || cooldown > 0}
-            onClick={onResend}
-          >
+          <Button type="button" variant="outline" disabled={pending || cooldown > 0} onClick={onResend}>
             {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend link'}
           </Button>
           <Button
@@ -247,7 +202,7 @@ export function LoginForm() {
         <button
           type="button"
           role="tab"
-          aria-selected={mode === 'signin' || mode === 'magic' || mode === 'forgot'}
+          aria-selected={mode === 'signin' || mode === 'forgot'}
           className={cn(
             'rounded-[var(--radius-sm)] px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30',
             mode !== 'signup' ? 'bg-surface text-accent shadow-sm' : 'text-ink-soft hover:text-ink',
@@ -274,11 +229,9 @@ export function LoginForm() {
       <CardDescription>
         {mode === 'signup'
           ? `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`
-          : mode === 'magic'
-            ? 'We will email you a one-time sign-in link.'
-            : mode === 'forgot'
-              ? 'Enter your email and we will send a reset link.'
-              : 'Welcome back — sign in with your email and password.'}
+          : mode === 'forgot'
+            ? 'Enter your email and we will send a reset link.'
+            : 'Welcome back — sign in with your email and password.'}
       </CardDescription>
 
       {authError ? (
@@ -317,13 +270,6 @@ export function LoginForm() {
               onClick={() => switchMode('forgot')}
             >
               Forgot password?
-            </button>
-            <button
-              type="button"
-              className="text-ink-soft underline-offset-2 hover:text-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
-              onClick={() => switchMode('magic')}
-            >
-              Continue with magic link
             </button>
             <p className="pt-2 text-ink-soft">
               Don&apos;t have an account?{' '}
@@ -390,31 +336,6 @@ export function LoginForm() {
               Sign in
             </button>
           </p>
-        </form>
-      ) : null}
-
-      {mode === 'magic' ? (
-        <form onSubmit={onMagicLink} className="mt-6 space-y-4">
-          <Field
-            id="magic-email"
-            label="Email"
-            type="email"
-            value={email}
-            onChange={setEmail}
-            autoComplete="email"
-            error={emailError}
-            required
-          />
-          <Button type="submit" className="w-full" disabled={pending}>
-            {pending ? 'Sending…' : 'Send magic link'}
-          </Button>
-          <button
-            type="button"
-            className="w-full text-center text-sm text-ink-soft underline-offset-2 hover:text-ink hover:underline"
-            onClick={() => switchMode('signin')}
-          >
-            Back to password sign in
-          </button>
         </form>
       ) : null}
 

@@ -3,7 +3,6 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme } from 'react-native';
 
 import { AuthBootstrap } from '@/components/auth/AuthBootstrap';
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { PottoPalette } from '@/constants/potto-theme';
 import { AuthProvider } from '@/store/AuthContext';
 import { NotificationsProvider } from '@/store/NotificationsContext';
@@ -22,11 +21,15 @@ export default function RootLayout() {
         <ToastProvider>
           <NotificationsProvider>
             <AuthBootstrap>
-              <AnimatedSplashOverlay />
-              <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.paper } }}>
-                <Stack.Screen name="index" />
-                <Stack.Screen name="(auth)" />
-                <Stack.Screen name="auth/callback" />
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  contentStyle: { backgroundColor: colors.paper },
+                }}>
+                {/* No slide between splash destinations — avoids home peeking under login. */}
+                <Stack.Screen name="index" options={{ animation: 'none' }} />
+                <Stack.Screen name="(auth)" options={{ animation: 'none' }} />
+                <Stack.Screen name="auth/callback" options={{ animation: 'none' }} />
                 <Stack.Screen name="notifications" />
                 <Stack.Screen name="create-pot" options={{ presentation: 'modal' }} />
                 <Stack.Screen name="join-pot/index" options={{ presentation: 'modal' }} />
