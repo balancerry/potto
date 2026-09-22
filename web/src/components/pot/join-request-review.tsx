@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { approveExistingMember, approveNewMember, rejectJoinRequest } from '@/lib/actions/members';
@@ -34,12 +34,6 @@ export function JoinRequestReview({
   const [loading, setLoading] = useState(false);
 
   const selectedMember = unlinked.find((m) => m.id === memberId);
-
-  useEffect(() => {
-    if (mode !== 'existing') return;
-    // Prefer requested name so admin can keep "Sunil" when linking to "SK".
-    setDisplayName(request.requestedName);
-  }, [mode, memberId, request.requestedName]);
 
   const nameSuggestions = useMemo(() => {
     const names = [request.requestedName, selectedMember?.name].filter(
@@ -115,7 +109,11 @@ export function JoinRequestReview({
         <Button
           size="sm"
           variant={mode === 'existing' ? 'primary' : 'outline'}
-          onClick={() => setMode('existing')}
+          onClick={() => {
+            setMode('existing');
+            // Prefer requested name so admin can keep "Sunil" when linking to "SK".
+            setDisplayName(request.requestedName);
+          }}
           disabled={unlinked.length === 0}
         >
           Link existing
@@ -139,7 +137,10 @@ export function JoinRequestReview({
             id="memberId"
             className="flex h-11 w-full rounded-[var(--radius-md)] border border-line bg-surface px-3 text-sm"
             value={memberId}
-            onChange={(e) => setMemberId(e.target.value)}
+            onChange={(e) => {
+              setMemberId(e.target.value);
+              setDisplayName(request.requestedName);
+            }}
           >
             {unlinked.map((m) => (
               <option key={m.id} value={m.id}>
