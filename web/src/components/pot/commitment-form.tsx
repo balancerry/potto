@@ -76,7 +76,6 @@ export function CommitmentForm({
       toast.success('Planned payment updated');
       setDirty(false);
       router.push(returnTo);
-      router.refresh();
       return;
     }
 
@@ -89,7 +88,6 @@ export function CommitmentForm({
     toast.success('Planned payment added');
     setDirty(false);
     router.push(returnTo);
-    router.refresh();
   }
 
   return (

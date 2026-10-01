@@ -75,7 +75,6 @@ export function SettingsForm({ pot, canDelete = false }: { pot: Pot; canDelete?:
     }
     toast.success('Pot archived');
     router.push('/');
-    router.refresh();
   }
 
   async function onDelete() {
@@ -91,7 +90,6 @@ export function SettingsForm({ pot, canDelete = false }: { pot: Pot; canDelete?:
     }
     toast.success('Pot deleted');
     router.push('/');
-    router.refresh();
   }
 
   return (

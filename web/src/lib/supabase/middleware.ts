@@ -25,9 +25,11 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getClaims verifies the JWT locally against the project's cached signing keys, so
+  // this runs on every request (including link prefetches) without an Auth round-trip.
+  // It still refreshes an expired session and writes the new cookies via setAll.
+  const { data } = await supabase.auth.getClaims();
+  const user = data?.claims ? { id: data.claims.sub } : null;
 
   return { user, supabaseResponse };
 }

@@ -83,7 +83,6 @@ export function JoinRequestReview({
     }
     toast.success('Member approved');
     router.push(`/pots/${potId}/members`);
-    router.refresh();
   }
 
   async function onReject() {
@@ -97,7 +96,6 @@ export function JoinRequestReview({
     }
     toast.success('Request rejected');
     router.push(`/pots/${potId}/members`);
-    router.refresh();
   }
 
   return (

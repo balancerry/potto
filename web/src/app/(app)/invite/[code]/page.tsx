@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { JoinPotFlow } from '@/components/pot/join-pot-flow';
 import { resolveInviteCode } from '@/lib/queries/resolve';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, getAuthUser } from '@/lib/supabase/server';
 
 export const metadata = { title: 'Invite' };
 
@@ -12,16 +12,14 @@ export default async function InviteCodePage({ params }: { params: Promise<{ cod
   if (!pot) notFound();
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
 
   let initialStatus: 'already_member' | 'already_pending' | null = null;
   let defaultName = '';
 
   if (user) {
     const { data: profile } = await supabase.from('users').select('name').eq('id', user.id).maybeSingle();
-    defaultName = profile?.name ?? (user.user_metadata?.name as string | undefined) ?? '';
+    defaultName = profile?.name ?? user.metadataName ?? '';
 
     const { data: member } = await supabase
       .from('pot_members')
