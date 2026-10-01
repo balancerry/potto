@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { JoinPotFlow } from '@/components/pot/join-pot-flow';
 import type { JoinChannel } from '@/lib/core/logic/join-requests';
 import { resolveJoinCode } from '@/lib/queries/resolve';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, getAuthUser } from '@/lib/supabase/server';
 
 export const metadata = { title: 'Request to join' };
 
@@ -27,16 +27,14 @@ export default async function JoinPotPage({
   if (!pot || pot.id !== potId) notFound();
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
 
   let initialStatus: 'already_member' | 'already_pending' | null = null;
   let defaultName = '';
 
   if (user) {
     const { data: profile } = await supabase.from('users').select('name').eq('id', user.id).maybeSingle();
-    defaultName = profile?.name ?? (user.user_metadata?.name as string | undefined) ?? '';
+    defaultName = profile?.name ?? user.metadataName ?? '';
 
     const { data: member } = await supabase
       .from('pot_members')

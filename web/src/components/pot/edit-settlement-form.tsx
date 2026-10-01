@@ -59,7 +59,6 @@ export function EditSettlementForm({
     toast.success('Settlement updated');
     setDirty(false);
     router.push(backTo);
-    router.refresh();
   }
 
   return (

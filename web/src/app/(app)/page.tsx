@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import { YourPotsDashboard } from '@/components/home/your-pots-dashboard';
 import { PotCardSkeleton } from '@/components/home/pot-card';
-import { listMyPots } from '@/lib/queries/pots';
+import { getMyPotPrefs, listMyPots } from '@/lib/queries/pots';
 
 export const metadata = { title: 'Your pots' };
 
@@ -29,8 +29,8 @@ function HomeSkeleton() {
 }
 
 async function YourPotsLoader() {
-  const pots = await listMyPots();
-  return <YourPotsDashboard items={pots} />;
+  const [pots, prefs] = await Promise.all([listMyPots(), getMyPotPrefs()]);
+  return <YourPotsDashboard items={pots} initialPrefs={prefs} />;
 }
 
 export default function HomePage() {

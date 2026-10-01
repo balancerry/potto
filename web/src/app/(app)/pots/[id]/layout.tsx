@@ -10,7 +10,6 @@ import { PotRealtime } from '@/components/pot/pot-realtime';
 import { RecordPotVisit } from '@/components/pot/record-pot-visit';
 import { Badge } from '@/components/ui/badge';
 import { getPotShell } from '@/lib/queries/pots';
-import { createClient } from '@/lib/supabase/server';
 
 export default async function PotLayout({
   children,
@@ -27,14 +26,9 @@ export default async function PotLayout({
   const peopleLabel = `${activeMemberCount} ${activeMemberCount === 1 ? 'person' : 'people'}`;
   const contextLine = poolManagerName ? `${peopleLabel} · ${poolManagerName} manages the pool` : peopleLabel;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
   return (
     <div className="space-y-6">
-      {user ? <RecordPotVisit userId={user.id} potId={id} /> : null}
+      <RecordPotVisit potId={id} />
       <PotRealtime potId={id} />
       <div className="space-y-3 border-b border-line pb-4">
         <div className="flex flex-wrap items-start justify-between gap-3">

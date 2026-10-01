@@ -216,7 +216,6 @@ export function AddExpenseForm({
       toast.success('Expense updated');
       setDirty(false);
       router.push(returnTo);
-      router.refresh();
       return;
     }
 
@@ -239,7 +238,6 @@ export function AddExpenseForm({
       toast.success('Payment recorded');
       setDirty(false);
       router.push(`/pots/${potId}/commitments/${selectedCommitmentId}`);
-      router.refresh();
       return;
     }
 
@@ -271,7 +269,6 @@ export function AddExpenseForm({
       toast.success('Expense and planned payment created');
       setDirty(false);
       router.push(`/pots/${potId}/commitments/${result.data.commitmentId}`);
-      router.refresh();
       return;
     }
 
@@ -284,7 +281,6 @@ export function AddExpenseForm({
     toast.success('Expense added');
     setDirty(false);
     router.push(returnTo);
-    router.refresh();
   }
 
   return (

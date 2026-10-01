@@ -35,19 +35,19 @@ export const metadata: Metadata = {
     apple: [{ url: '/apple-touch-icon.png', type: 'image/png', sizes: '180x180' }],
   },
   manifest: '/manifest.webmanifest',
+  // The share image comes from app/opengraph-image.tsx (file-based metadata overrides `images` here).
   openGraph: {
-    title: 'Potto',
-    description: 'Shared money for trips, events, and group funds.',
+    title: 'Potto: one shared pot for trips, events & group funds',
+    description:
+      'Pool money with your group, log every expense, and settle up fairly. See who paid, who owes, and what’s left in one place.',
     siteName: 'Potto',
     type: 'website',
     url: '/',
-    images: [{ url: '/icon-512.png', width: 512, height: 512, alt: 'Potto' }],
   },
   twitter: {
-    card: 'summary',
-    title: 'Potto',
-    description: 'Shared money for trips, events, and group funds.',
-    images: ['/icon-512.png'],
+    card: 'summary_large_image',
+    title: 'Potto: one shared pot for trips, events & group funds',
+    description: 'Pool money with your group, log every expense, and settle up fairly.',
   },
 };
 
