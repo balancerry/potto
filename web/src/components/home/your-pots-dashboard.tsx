@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Compass, Plus, RefreshCw, Search, Users, X } from 'lucide-react';
-import type { PotDisplayStatus, PotListItem } from '@/lib/queries/pots';
+import type { MyPotPrefs, PotDisplayStatus, PotListItem } from '@/lib/queries/pots';
 import { pinRank, visitTimestamp, type PotVisitMap } from '@/lib/recent-pots';
 import { fetchUserPotPrefs } from '@/lib/user-pot-prefs';
 import { EmptyPotsState } from '@/components/home/empty-pots-state';
@@ -78,15 +78,22 @@ function sortItems(items: PotListItem[], sort: SortKey, visits: PotVisitMap, pin
   });
 }
 
-export function YourPotsDashboard({ items }: { items: PotListItem[] }) {
+export function YourPotsDashboard({
+  items,
+  initialPrefs,
+}: {
+  items: PotListItem[];
+  /** Server-loaded pins/visits so the first paint is already in pinned/visited order. */
+  initialPrefs: MyPotPrefs | null;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<FilterKey>('all');
   const [sort, setSort] = useState<SortKey>('visited');
-  const [visits, setVisits] = useState<PotVisitMap>({});
-  const [pins, setPins] = useState<string[]>([]);
-  const [userId, setUserId] = useState<string | null>(null);
+  const [visits, setVisits] = useState<PotVisitMap>(initialPrefs?.visits ?? {});
+  const [pins, setPins] = useState<string[]>(initialPrefs?.pins ?? []);
+  const [userId, setUserId] = useState<string | null>(initialPrefs?.userId ?? null);
 
   useEffect(() => {
     let cancelled = false;

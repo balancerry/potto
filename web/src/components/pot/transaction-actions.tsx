@@ -30,7 +30,6 @@ export function TransactionActions({
     }
     toast.success('Deleted');
     router.push(`/pots/${potId}/transactions`);
-    router.refresh();
   }
 
   const txPath = `/pots/${potId}/transactions/${txId}`;

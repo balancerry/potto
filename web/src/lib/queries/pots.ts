@@ -37,7 +37,8 @@ import {
   type SplitRow,
   type TransactionRow,
 } from '@/lib/mappers';
-import { createClient } from '@/lib/supabase/server';
+import { normalizePins, normalizeVisits, type UserPotPrefs } from '@/lib/recent-pots';
+import { createClient, getAuthUser } from '@/lib/supabase/server';
 
 /** Card-facing lifecycle label. Archived is stored; upcoming is derived from open commitments. */
 export type PotDisplayStatus = 'active' | 'upcoming' | 'archived';
@@ -73,6 +74,8 @@ export interface PotBundle {
   currentMember: Member | null;
 }
 
+type TransactionWithSplitsRow = TransactionRow & { transaction_splits: SplitRow[] | null };
+
 function deriveDisplayStatus(potStatus: Pot['status'], upcomingRemaining: number): PotDisplayStatus {
   if (potStatus === 'archived') return 'archived';
   if (upcomingRemaining > 0) return 'upcoming';
@@ -81,12 +84,10 @@ function deriveDisplayStatus(potStatus: Pot['status'], upcomingRemaining: number
 
 /** Pots where the signed-in user is an active member, with summary figures for the home dashboard. */
 export async function listMyPots(): Promise<PotListItem[]> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return [];
 
+  const supabase = await createClient();
   const { data: memberships, error: memErr } = await supabase
     .from('pot_members')
     .select('pot_id')
@@ -194,6 +195,30 @@ export async function listMyPots(): Promise<PotListItem[]> {
   });
 }
 
+export interface MyPotPrefs extends UserPotPrefs {
+  userId: string;
+}
+
+/** Pins and visit times for the home list, loaded with the page so cards render in their final order. */
+export async function getMyPotPrefs(): Promise<MyPotPrefs | null> {
+  const user = await getAuthUser();
+  if (!user) return null;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('users')
+    .select('pinned_pot_ids, pot_visits')
+    .eq('id', user.id)
+    .maybeSingle();
+  if (error) console.error('getMyPotPrefs', error.message);
+
+  return {
+    userId: user.id,
+    pins: normalizePins(data?.pinned_pot_ids),
+    visits: normalizeVisits(data?.pot_visits),
+  };
+}
+
 export interface PotShell {
   pot: Pot;
   currentMember: Member | null;
@@ -206,12 +231,10 @@ export interface PotShell {
  * so tab switches and first paint are not blocked on transactions/splits.
  */
 export const getPotShell = cache(async (potId: string): Promise<PotShell | null> => {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return null;
 
+  const supabase = await createClient();
   const [{ data: potRow, error: potErr }, { data: memberRows, error: memberErr }, { data: managerRow }] = await Promise.all([
     supabase.from('pots').select('*').eq('id', potId).maybeSingle(),
     supabase.from('pot_members').select('*').eq('pot_id', potId).order('created_at', { ascending: true }),
@@ -241,12 +264,10 @@ export const getPotShell = cache(async (potId: string): Promise<PotShell | null>
  * Cached per-request so multiple page fetches share one load.
  */
 export const getPotBundle = cache(async (potId: string): Promise<PotBundle | null> => {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return null;
 
+  const supabase = await createClient();
   const [
     { data: potRow, error: potErr },
     { data: memberRows, error: memberErr },
@@ -262,7 +283,7 @@ export const getPotBundle = cache(async (potId: string): Promise<PotBundle | nul
     supabase.from('pot_members').select('*').eq('pot_id', potId).order('created_at', { ascending: true }),
     supabase
       .from('transactions')
-      .select('*')
+      .select('*, transaction_splits(*)')
       .eq('pot_id', potId)
       .order('date', { ascending: false })
       .order('created_at', { ascending: false }),
@@ -296,25 +317,9 @@ export const getPotBundle = cache(async (potId: string): Promise<PotBundle | nul
 
   const pot = mapPot(potRow as PotRow, members);
 
-  const txIds = ((txRows ?? []) as TransactionRow[]).map((t) => t.id);
-  let splitsByTx = new Map<string, ReturnType<typeof mapSplit>[]>();
-  if (txIds.length > 0) {
-    const { data: splitRows, error: splitErr } = await supabase
-      .from('transaction_splits')
-      .select('*')
-      .in('transaction_id', txIds);
-    if (splitErr) throw splitErr;
-    splitsByTx = new Map();
-    for (const row of (splitRows ?? []) as SplitRow[]) {
-      const tid = row.transaction_id!;
-      const list = splitsByTx.get(tid) ?? [];
-      list.push(mapSplit(row));
-      splitsByTx.set(tid, list);
-    }
-  }
-
-  const transactions = ((txRows ?? []) as TransactionRow[]).map((row) =>
-    mapTransaction(row, splitsByTx.get(row.id) ?? []),
+  // Splits are embedded in the transactions query (one round-trip instead of two).
+  const transactions = ((txRows ?? []) as TransactionWithSplitsRow[]).map(
+    ({ transaction_splits, ...row }) => mapTransaction(row, (transaction_splits ?? []).map(mapSplit)),
   );
 
   const joinRequests = ((joinRows ?? []) as JoinRequestRow[]).map(mapJoinRequest);

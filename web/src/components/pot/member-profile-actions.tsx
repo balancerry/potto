@@ -55,7 +55,6 @@ export function MemberProfileActions({
     }
     toast.success('Member removed');
     router.push(`/pots/${potId}/members`);
-    router.refresh();
   }
 
   return (

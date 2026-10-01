@@ -1,18 +1,16 @@
 import Link from 'next/link';
 import { CreatePotForm } from '@/components/pot/create-pot-form';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, getAuthUser } from '@/lib/supabase/server';
 
 export const metadata = { title: 'Create pot' };
 
 export default async function NewPotPage() {
+  const user = await getAuthUser();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
   const { data: profile } = user
     ? await supabase.from('users').select('name').eq('id', user.id).maybeSingle()
     : { data: null };
-  const creatorName = profile?.name ?? (user?.user_metadata?.name as string | undefined) ?? '';
+  const creatorName = profile?.name ?? user?.metadataName ?? '';
 
   return (
     <div className="w-full max-w-[800px] space-y-6">

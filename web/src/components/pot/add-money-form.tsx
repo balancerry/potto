@@ -208,7 +208,6 @@ export function AddMoneyForm({
       toast.success('Contribution updated');
       setDirty(false);
       router.push(returnTo);
-      router.refresh();
       return;
     }
 

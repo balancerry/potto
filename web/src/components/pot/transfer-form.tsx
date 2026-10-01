@@ -78,7 +78,6 @@ export function TransferForm({
     toast.success('Money transferred');
     setDirty(false);
     router.push(poolPath);
-    router.refresh();
   }
 
   return (
