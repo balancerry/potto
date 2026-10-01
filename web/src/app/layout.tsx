@@ -20,6 +20,7 @@ const display = Fraunces({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.trypotto.in'),
   title: {
     default: 'Potto',
     template: '%s · Potto',
@@ -39,7 +40,14 @@ export const metadata: Metadata = {
     description: 'Shared money for trips, events, and group funds.',
     siteName: 'Potto',
     type: 'website',
+    url: '/',
     images: [{ url: '/icon-512.png', width: 512, height: 512, alt: 'Potto' }],
+  },
+  twitter: {
+    card: 'summary',
+    title: 'Potto',
+    description: 'Shared money for trips, events, and group funds.',
+    images: ['/icon-512.png'],
   },
 };
 
