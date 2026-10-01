@@ -12,7 +12,9 @@ import {
 } from '@/logic/accounting';
 import type { Member, Transaction } from '@/types/models';
 
-// The exact worked example from the Settle Up product spec:
+
+
+// kdkfjkdj The exact worked example from the Settle Up product spec:
 // Contributions Raj 4000, Sakshi 4000, Mona 3000, Sunil 5400 (total 16400).
 // Pool expenses 7200 + 6000 + 2100 + 3500 (total 18800), split equally.
 // Pool balance -2400. Member positions: Raj -700, Sakshi -700, Mona -1700, Sunil +700.
