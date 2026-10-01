@@ -12,7 +12,7 @@ function safeNext(value: string | null): string {
   return value;
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { user, supabaseResponse } = await updateSession(request);
   const { pathname } = request.nextUrl;
 

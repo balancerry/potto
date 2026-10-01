@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 
 /**
  * Server Supabase client (App Router). Creates a fresh client per call;
- * cookie writes may no-op in Server Components — middleware should refresh sessions.
+ * cookie writes may no-op in Server Components — proxy should refresh sessions.
  */
 export async function createClient() {
   const cookieStore = await cookies();
@@ -22,7 +22,7 @@ export async function createClient() {
               cookieStore.set(name, value, options);
             });
           } catch {
-            // Called from a Server Component — ignore; middleware handles refresh.
+            // Called from a Server Component — ignore; proxy handles refresh.
           }
         },
       },

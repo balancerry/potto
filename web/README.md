@@ -71,7 +71,7 @@ web/src/
     actions/           # server actions (mutations)
     queries/           # server reads
     supabase/          # browser + server clients
-  middleware.ts        # session + auth gate
+  proxy.ts             # session + auth gate
 ```
 
 Roles (`admin` / `member` + `access_level`) match mobile. Sensitive writes are enforced by **RLS and security-definer RPCs**, not UI alone.
