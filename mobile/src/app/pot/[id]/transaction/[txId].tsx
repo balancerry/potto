@@ -9,6 +9,7 @@ import { EmptyState } from '@/components/potto/EmptyState';
 import { ScreenHeader } from '@/components/potto/ScreenHeader';
 import { paymentMethodLabel } from '@/constants/payment-methods';
 import { usePottoColors } from '@/constants/potto-theme';
+import { categoryLabel, resolveCategory } from '@/logic/categories';
 import { canDeleteTransaction, canEditTransaction } from '@/logic/permissions';
 import { usePottoStore } from '@/store/PottoStore';
 import { useToast } from '@/store/ToastContext';
@@ -20,6 +21,7 @@ const TYPE_LABEL: Record<Transaction['type'], string> = {
   pool_expense: 'Pool Expense',
   member_expense: 'Member Expense',
   settlement: 'Settlement',
+  pool_transfer: 'Transfer',
 };
 
 const TYPE_ICON: Record<Transaction['type'], string> = {
@@ -27,12 +29,13 @@ const TYPE_ICON: Record<Transaction['type'], string> = {
   pool_expense: '↑',
   member_expense: '👤',
   settlement: '⇄',
+  pool_transfer: '↔',
 };
 
 export default function TransactionDetailScreen() {
   const { id, txId } = useLocalSearchParams<{ id: string; txId: string }>();
   const colors = usePottoColors();
-  const { getPot, getTransactions, getCurrentMember, deleteTransaction } = usePottoStore();
+  const { getPot, getTransactions, getCurrentMember, deleteTransaction, getCategories } = usePottoStore();
   const { showToast } = useToast();
   const [confirmVisible, setConfirmVisible] = useState(false);
   const pot = getPot(id);
@@ -86,12 +89,14 @@ export default function TransactionDetailScreen() {
     pool_expense: colors.negSoft,
     member_expense: colors.goldSoft,
     settlement: colors.accentSoft,
+    pool_transfer: colors.accentSoft,
   }[tx.type];
   const iconFg = {
     contribution: colors.pos,
     pool_expense: colors.neg,
     member_expense: colors.gold,
     settlement: colors.accent,
+    pool_transfer: colors.accent,
   }[tx.type];
 
   return (
@@ -128,7 +133,9 @@ export default function TransactionDetailScreen() {
           {tx.paymentSource && (
             <Row label="Source" value={tx.paymentSource === 'pool' ? 'Shared Pot' : 'Personal payment'} colors={colors} />
           )}
-          {tx.category && <Row label="Category" value={tx.category} colors={colors} />}
+          {(tx.type === 'pool_expense' || tx.type === 'member_expense') && (
+            <Row label="Category" value={categoryLabel(resolveCategory(tx.categoryId, getCategories(id)))} colors={colors} />
+          )}
           <Row label="Date" value={formatDateFull(tx.date)} colors={colors} />
           {tx.note && <Row label="Note" value={tx.note} colors={colors} />}
           <Row label="Created by" value={memberName(tx.createdBy)} colors={colors} />

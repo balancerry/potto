@@ -4,9 +4,10 @@ import { canDeleteTransaction, canEditTransaction } from '@/lib/core/logic/permi
 import { paymentMethodLabel } from '@/lib/core/constants/payment-methods';
 import { formatDateFull, formatMoney } from '@/lib/core/money';
 import { getPotBundle } from '@/lib/queries/pots';
+import { CategoryBadge } from '@/components/categories/category-icon';
+import { resolveCategory } from '@/lib/core/logic/categories';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardTitle } from '@/components/ui/card';
-import { ButtonLink } from '@/components/ui/button';
 
 export const metadata = { title: 'Transaction' };
 
@@ -29,16 +30,15 @@ export default async function TransactionDetailPage({
     <div className="mx-auto max-w-lg space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <ButtonLink href={`/pots/${id}/transactions`} variant="ghost" size="sm" className="mb-2 -ml-2">
-            ← Activity
-          </ButtonLink>
-          <h2 className="font-display text-2xl font-semibold text-ink">{tx.description}</h2>
+          <h2 className="font-sans text-2xl font-semibold text-ink">{tx.description}</h2>
           <div className="mt-2 flex flex-wrap gap-2">
             <Badge className="capitalize">{tx.type.replace('_', ' ')}</Badge>
-            {tx.category ? <Badge tone="accent">{tx.category}</Badge> : null}
+            {tx.type === 'pool_expense' || tx.type === 'member_expense' ? (
+              <CategoryBadge category={resolveCategory(tx.categoryId, bundle.categories)} className="self-center text-sm" />
+            ) : null}
           </div>
         </div>
-        <p className="font-display text-3xl font-semibold text-accent">{formatMoney(tx.amount)}</p>
+        <p className="font-money text-3xl font-bold text-accent">{formatMoney(tx.amount)}</p>
       </div>
 
       <Card className="space-y-3 text-sm">
@@ -58,7 +58,7 @@ export default async function TransactionDetailPage({
             {tx.splits.map((s) => (
               <li key={s.memberId} className="flex justify-between gap-2">
                 <span>{nameOf(s.memberId)}</span>
-                <span>{formatMoney(s.amount)}</span>
+                <span className="font-money font-semibold">{formatMoney(s.amount)}</span>
               </li>
             ))}
           </ul>

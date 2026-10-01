@@ -11,14 +11,18 @@ import type {
   CommitmentPayment,
   JoinRequest,
   Member,
+  PoolAccount,
   Pot,
+  PotCategory,
   Transaction,
 } from '@/lib/core/models';
 import {
+  mapCategory,
   mapCommitment,
   mapCommitmentPayment,
   mapJoinRequest,
   mapMember,
+  mapPoolAccount,
   mapPot,
   mapSplit,
   mapTransaction,
@@ -26,6 +30,9 @@ import {
   type CommitmentRow,
   type JoinRequestRow,
   type MemberRow,
+  type PoolAccountRow,
+  type PoolManagerRow,
+  type PotCategoryRow,
   type PotRow,
   type SplitRow,
   type TransactionRow,
@@ -59,6 +66,10 @@ export interface PotBundle {
   joinRequests: JoinRequest[];
   commitments: Commitment[];
   commitmentPayments: CommitmentPayment[];
+  poolAccounts: PoolAccount[];
+  poolManagerMemberId: string | null;
+  /** The Pot's own categories, active and archived, in sort order. */
+  categories: PotCategory[];
   currentMember: Member | null;
 }
 
@@ -186,6 +197,8 @@ export async function listMyPots(): Promise<PotListItem[]> {
 export interface PotShell {
   pot: Pot;
   currentMember: Member | null;
+  poolManagerName: string | null;
+  activeMemberCount: number;
 }
 
 /**
@@ -199,9 +212,10 @@ export const getPotShell = cache(async (potId: string): Promise<PotShell | null>
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const [{ data: potRow, error: potErr }, { data: memberRows, error: memberErr }] = await Promise.all([
+  const [{ data: potRow, error: potErr }, { data: memberRows, error: memberErr }, { data: managerRow }] = await Promise.all([
     supabase.from('pots').select('*').eq('id', potId).maybeSingle(),
     supabase.from('pot_members').select('*').eq('pot_id', potId).order('created_at', { ascending: true }),
+    supabase.from('pot_pool_managers').select('pot_member_id').eq('pot_id', potId).eq('active', true).maybeSingle(),
   ]);
 
   if (potErr) throw potErr;
@@ -211,10 +225,13 @@ export const getPotShell = cache(async (potId: string): Promise<PotShell | null>
   const members = ((memberRows ?? []) as MemberRow[]).map(mapMember);
   const currentMember = members.find((m) => m.status === 'active' && m.userId === user.id) ?? null;
   if (!currentMember) return null;
+  const managerId = (managerRow?.pot_member_id as string | undefined) ?? null;
 
   return {
     pot: mapPot(potRow as PotRow, members),
     currentMember,
+    poolManagerName: members.find((m) => m.id === managerId)?.name ?? null,
+    activeMemberCount: members.filter((m) => m.status === 'active').length,
   };
 });
 
@@ -237,6 +254,9 @@ export const getPotBundle = cache(async (potId: string): Promise<PotBundle | nul
     { data: joinRows, error: joinErr },
     { data: commitmentRows, error: commitmentErr },
     { data: paymentRows, error: paymentErr },
+    { data: accountRows, error: accountErr },
+    { data: managerRows, error: managerErr },
+    { data: categoryRows, error: categoryErr },
   ] = await Promise.all([
     supabase.from('pots').select('*').eq('id', potId).maybeSingle(),
     supabase.from('pot_members').select('*').eq('pot_id', potId).order('created_at', { ascending: true }),
@@ -249,6 +269,14 @@ export const getPotBundle = cache(async (potId: string): Promise<PotBundle | nul
     supabase.from('join_requests').select('*').eq('pot_id', potId).order('created_at', { ascending: false }),
     supabase.from('commitments').select('*').eq('pot_id', potId).order('created_at', { ascending: false }),
     supabase.from('commitment_payments').select('*').eq('pot_id', potId),
+    supabase.from('pool_accounts').select('*').eq('pot_id', potId).order('type', { ascending: true }),
+    supabase.from('pot_pool_managers').select('*').eq('pot_id', potId).eq('active', true).limit(1),
+    supabase
+      .from('pot_categories')
+      .select('*')
+      .eq('pot_id', potId)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true }),
   ]);
 
   if (potErr) throw potErr;
@@ -257,6 +285,9 @@ export const getPotBundle = cache(async (potId: string): Promise<PotBundle | nul
   if (joinErr) throw joinErr;
   if (commitmentErr) throw commitmentErr;
   if (paymentErr) throw paymentErr;
+  if (accountErr) throw accountErr;
+  if (managerErr) throw managerErr;
+  if (categoryErr) throw categoryErr;
   if (!potRow) return null;
 
   const members = ((memberRows ?? []) as MemberRow[]).map(mapMember);
@@ -289,6 +320,9 @@ export const getPotBundle = cache(async (potId: string): Promise<PotBundle | nul
   const joinRequests = ((joinRows ?? []) as JoinRequestRow[]).map(mapJoinRequest);
   const commitments = ((commitmentRows ?? []) as CommitmentRow[]).map(mapCommitment);
   const commitmentPayments = ((paymentRows ?? []) as CommitmentPaymentRow[]).map(mapCommitmentPayment);
+  const poolAccounts = ((accountRows ?? []) as PoolAccountRow[]).map(mapPoolAccount);
+  const poolManagerMemberId =
+    ((managerRows ?? []) as PoolManagerRow[])[0]?.pot_member_id ?? null;
 
   return {
     pot,
@@ -297,6 +331,9 @@ export const getPotBundle = cache(async (potId: string): Promise<PotBundle | nul
     joinRequests,
     commitments,
     commitmentPayments,
+    poolAccounts,
+    poolManagerMemberId,
+    categories: ((categoryRows ?? []) as PotCategoryRow[]).map(mapCategory),
     currentMember,
   };
 });

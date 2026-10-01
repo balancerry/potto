@@ -144,11 +144,11 @@ export function JoinPotFlow({
       <dl className="mt-6 grid grid-cols-2 gap-4 rounded-[var(--radius-md)] bg-surface-sunk p-4">
         <div>
           <dt className="text-xs uppercase tracking-wide text-ink-soft">Members</dt>
-          <dd className="font-display text-2xl font-semibold text-ink">{pot.memberCount}</dd>
+          <dd className="font-money text-2xl font-bold text-ink">{pot.memberCount}</dd>
         </div>
         <div>
           <dt className="text-xs uppercase tracking-wide text-ink-soft">Status</dt>
-          <dd className="font-display text-2xl font-semibold capitalize text-ink">{pot.status}</dd>
+          <dd className="font-sans text-2xl font-semibold capitalize text-ink">{pot.status}</dd>
         </div>
       </dl>
       <Button className="mt-6 w-full" onClick={() => setView('identity')}>

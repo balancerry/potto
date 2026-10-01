@@ -59,7 +59,7 @@ export function ContributionsTab({ potId }: { potId: string }) {
         )}
         {totalContributed === 0 && (
           <View style={styles.summaryAction}>
-            <Button label="+ Add Money" onPress={() => router.push(`/pot/${potId}/add-money`)} variant="accent" fullWidth />
+            <Button label="Add contribution" onPress={() => router.push(`/pot/${potId}/add-money`)} variant="accent" fullWidth />
           </View>
         )}
       </View>

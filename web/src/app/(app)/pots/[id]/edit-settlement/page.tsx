@@ -29,7 +29,7 @@ export default async function EditSettlementPage({
       <EmptyState
         title="Not permitted"
         description="You don't have permission to edit this settlement."
-        action={<ButtonLink href={`/pots/${id}/transactions/${txId}`}>Back</ButtonLink>}
+        action={<ButtonLink href={`/pots/${id}/transactions/${txId}`}>← Transaction</ButtonLink>}
       />
     );
   }
@@ -37,7 +37,7 @@ export default async function EditSettlementPage({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="font-display text-2xl font-semibold text-ink">Edit settlement</h2>
+        <h2 className="font-sans text-2xl font-semibold text-ink">Edit settlement</h2>
         <p className="mt-1 text-sm text-ink-soft">Update the recorded transfer between members.</p>
       </div>
       <EditSettlementForm potId={id} members={bundle.members} tx={tx} />

@@ -4,7 +4,9 @@ import type {
   CommitmentPayment,
   JoinRequest,
   Member,
+  PoolAccount,
   Pot,
+  PotCategory,
   PottoUser,
   Transaction,
 } from '@/types/models';
@@ -17,6 +19,9 @@ export type WorkspaceSnapshot = {
   joinRequests: Record<string, JoinRequest[]>;
   commitments: Record<string, Commitment[]>;
   commitmentPayments: Record<string, CommitmentPayment[]>;
+  poolAccounts: Record<string, PoolAccount[]>;
+  poolManagerMemberIds: Record<string, string | null>;
+  categories: Record<string, PotCategory[]>;
 };
 
 function emptyWorkspace(user: PottoUser): WorkspaceSnapshot {
@@ -28,6 +33,9 @@ function emptyWorkspace(user: PottoUser): WorkspaceSnapshot {
     joinRequests: {},
     commitments: {},
     commitmentPayments: {},
+    poolAccounts: {},
+    poolManagerMemberIds: {},
+    categories: {},
   };
 }
 
@@ -53,6 +61,9 @@ export async function fetchWorkspace(userId: string, displayName: string): Promi
     { data: joinRows, error: joinErr },
     { data: commitmentRows, error: commitmentErr },
     { data: paymentRows, error: paymentErr },
+    { data: accountRows, error: accountErr },
+    { data: managerRows, error: managerErr },
+    { data: categoryRows, error: categoryErr },
   ] = await Promise.all([
     supabase.from('pots').select('*').in('id', potIds).order('created_at', { ascending: false }),
     supabase.from('pot_members').select('*').in('pot_id', potIds),
@@ -60,6 +71,9 @@ export async function fetchWorkspace(userId: string, displayName: string): Promi
     supabase.from('join_requests').select('*').in('pot_id', potIds),
     supabase.from('commitments').select('*').in('pot_id', potIds),
     supabase.from('commitment_payments').select('*').in('pot_id', potIds),
+    supabase.from('pool_accounts').select('*').in('pot_id', potIds),
+    supabase.from('pot_pool_managers').select('*').in('pot_id', potIds).eq('active', true),
+    supabase.from('pot_categories').select('*').in('pot_id', potIds).order('sort_order', { ascending: true }),
   ]);
 
   if (potErr) throw potErr;
@@ -68,6 +82,9 @@ export async function fetchWorkspace(userId: string, displayName: string): Promi
   if (joinErr) throw joinErr;
   if (commitmentErr) throw commitmentErr;
   if (paymentErr) throw paymentErr;
+  if (accountErr) throw accountErr;
+  if (managerErr) throw managerErr;
+  if (categoryErr) throw categoryErr;
 
   const membersByPot = new Map<string, Member[]>();
   for (const row of memberRows ?? []) {
@@ -105,6 +122,8 @@ export async function fetchWorkspace(userId: string, displayName: string): Promi
   for (const row of potRows ?? []) {
     const members = membersByPot.get(row.id) ?? [];
     const creatorMember =
+      members.find((m) => m.userId === row.created_by && m.role === 'owner') ??
+      members.find((m) => m.role === 'owner') ??
       members.find((m) => m.role === 'admin') ??
       members.find((m) => m.userId === row.created_by) ??
       members[0];
@@ -140,11 +159,14 @@ export async function fetchWorkspace(userId: string, displayName: string): Promi
       createdBy: row.created_by,
     };
     if (row.note) tx.note = row.note;
-    if (row.category) tx.category = row.category;
+    if (row.category_id) tx.categoryId = row.category_id;
     if (row.paid_by) tx.paidBy = row.paid_by;
     if (row.to_member) tx.toMember = row.to_member;
     if (row.payment_method) tx.paymentMethod = row.payment_method;
     if (row.payment_source) tx.paymentSource = row.payment_source;
+    if (row.pool_account_id) tx.poolAccountId = row.pool_account_id;
+    if (row.to_pool_account_id) tx.toPoolAccountId = row.to_pool_account_id;
+    if (row.received_via) tx.receivedVia = row.received_via;
     if (row.split_method) tx.splitMethod = row.split_method;
     if (row.participants?.length) tx.participants = row.participants;
     if (splits.length) tx.splits = splits;
@@ -180,7 +202,7 @@ export async function fetchWorkspace(userId: string, displayName: string): Promi
       potId,
       title: row.title,
       vendorName: row.vendor_name ?? undefined,
-      category: row.category ?? undefined,
+      categoryId: row.category_id ?? undefined,
       description: row.description ?? undefined,
       totalAmount: Number(row.total_amount),
       dueDate: row.due_date ? String(row.due_date).slice(0, 10) : undefined,
@@ -207,6 +229,43 @@ export async function fetchWorkspace(userId: string, displayName: string): Promi
     commitmentPayments[potId] = list;
   }
 
+  const poolAccounts: Record<string, PoolAccount[]> = {};
+  for (const row of accountRows ?? []) {
+    const potId = row.pot_id as string;
+    const list = poolAccounts[potId] ?? [];
+    list.push({
+      id: row.id,
+      potId,
+      name: row.name,
+      type: row.type,
+      currency: row.currency,
+      active: row.active,
+      isDefault: row.is_default,
+    });
+    poolAccounts[potId] = list;
+  }
+
+  const poolManagerMemberIds: Record<string, string | null> = {};
+  for (const potId of potIds) poolManagerMemberIds[potId] = null;
+  for (const row of managerRows ?? []) {
+    poolManagerMemberIds[row.pot_id as string] = row.pot_member_id as string;
+  }
+
+  const categories: Record<string, PotCategory[]> = {};
+  for (const potId of potIds) categories[potId] = [];
+  for (const row of categoryRows ?? []) {
+    categories[row.pot_id as string].push({
+      id: row.id,
+      potId: row.pot_id,
+      name: row.name,
+      icon: row.icon,
+      color: row.color,
+      isActive: row.is_active,
+      isDefault: row.is_default,
+      sortOrder: row.sort_order,
+    });
+  }
+
   return {
     currentUser,
     currentUserName: displayName,
@@ -215,6 +274,9 @@ export async function fetchWorkspace(userId: string, displayName: string): Promi
     joinRequests,
     commitments,
     commitmentPayments,
+    poolAccounts,
+    poolManagerMemberIds,
+    categories,
   };
 }
 
@@ -222,15 +284,13 @@ export async function createPotRemote(input: {
   name: string;
   description?: string;
   memberNames: string[];
-  startingContributionPaise?: number;
-  expectedContributionPaise?: number;
 }): Promise<string> {
   const { data: potId, error } = await supabase.rpc('create_pot', {
     p_name: input.name,
     p_description: input.description ?? null,
     p_member_names: input.memberNames.filter((n) => n.trim().length > 0),
-    p_starting_contribution: input.startingContributionPaise ?? null,
-    p_expected_contribution_per_member: input.expectedContributionPaise ?? null,
+    p_starting_contribution: null,
+    p_expected_contribution_per_member: null,
   });
   if (error) throw error;
   if (!potId || typeof potId !== 'string') throw new Error('Failed to create pot');

@@ -55,7 +55,7 @@ All amounts are integer **paise**. UI accepts rupees and converts with `toPaise`
 |-----|---------|
 | `create_pot` | Pot + admin member + optional members/contribution |
 | `approve_join_request` / `reject_join_request` | Atomic admin review |
-| `create_commitment` / `update_commitment` / `cancel_commitment` | Upcoming payments (no money movement) |
+| `create_commitment` / `update_commitment` / `cancel_commitment` | Planned payments (no money movement) |
 | `resolve_invite_code` / `resolve_join_code` | Safe public pot summary for join flows |
 
 Expense + commitment payment linking is done in server actions (tx + splits + `commitment_payments`) so FK cascade stays consistent.

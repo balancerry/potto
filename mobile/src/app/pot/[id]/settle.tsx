@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { EmptyState } from '@/components/potto/EmptyState';
 import { PrimaryButton, SecondaryButton } from '@/components/potto/Button';
 import { RecordPaymentModal } from '@/components/potto/RecordPaymentModal';
+import { PotSectionNav } from '@/components/potto/PotSectionNav';
 import { ScreenHeader } from '@/components/potto/ScreenHeader';
 import { SettlementCard } from '@/components/potto/SettlementCard';
 import { paymentMethodLabel } from '@/constants/payment-methods';
@@ -93,7 +94,8 @@ export default function SettleScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.paper }]}>
-      <ScreenHeader title="Settle Up" onBack={() => router.back()} />
+      <ScreenHeader title="Settle" onBack={() => router.back()} />
+      <PotSectionNav potId={id} current="settle" />
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {allSettled ? (
           <View style={styles.hero}>

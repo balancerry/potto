@@ -1,20 +1,20 @@
 import { Platform, useColorScheme } from 'react-native';
 
 const light = {
-  ink: '#1C1B19',
-  inkSoft: '#6B6862',
-  paper: '#F6F3EC',
-  surface: '#FFFFFF',
-  surfaceSunk: '#EFEBE1',
-  line: '#E4DECF',
-  accent: '#1F5F4E',
-  accentSoft: '#DCEAE4',
+  ink: '#23211D',
+  inkSoft: '#655F52',
+  paper: '#F5F0E4',
+  surface: '#FFFDF7',
+  surfaceSunk: '#EFE9D9',
+  line: '#E2D8BE',
+  accent: '#1E3A2B',
+  accentSoft: '#E1E8DD',
   pos: '#2E7D5B',
   posSoft: '#E2F1E8',
-  neg: '#C1552F',
+  neg: '#B3462F',
   negSoft: '#FBEAE1',
-  gold: '#B8892B',
-  goldSoft: '#F3E7C9',
+  gold: '#C08A2E',
+  goldSoft: '#F1E1BC',
 };
 
 const dark = {
@@ -41,9 +41,9 @@ export const Radius = { sm: 9, md: 14, lg: 20, xl: 24, pill: 999 };
 export const Space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24, xxxl: 32 };
 
 export const PottoFonts = Platform.select({
-  ios: { display: 'ui-serif', body: 'system-ui' },
-  android: { display: 'serif', body: 'sans-serif' },
-  default: { display: 'serif', body: 'System' },
+  ios: { display: 'ui-serif', body: 'System', sans: 'System' },
+  android: { display: 'serif', body: 'sans-serif', sans: 'sans-serif' },
+  default: { display: 'serif', body: 'System', sans: 'System' },
 })!;
 
 export function usePottoColors(): PottoColors {

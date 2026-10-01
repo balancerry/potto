@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { cancelCommitment } from '@/lib/actions/commitments';
 import { Button, ButtonLink } from '@/components/ui/button';
+import { withReturn } from '@/lib/navigation/pot-trail';
 
 export function CommitmentActions({
   potId,
@@ -23,7 +24,7 @@ export function CommitmentActions({
   const router = useRouter();
 
   async function onCancel() {
-    if (!confirm('Cancel this upcoming payment? Linked expenses stay in the ledger.')) return;
+    if (!confirm('Cancel this planned payment? Linked expenses stay in the ledger.')) return;
     const result = await cancelCommitment(potId, commitmentId);
     if (!result.ok) {
       toast.error(result.error);
@@ -36,7 +37,7 @@ export function CommitmentActions({
   return (
     <div className="flex flex-wrap gap-2">
       {canPay && !cancelled ? (
-        <ButtonLink href={`/pots/${potId}/add-expense?linkCommitmentId=${commitmentId}`}>
+        <ButtonLink href={withReturn(`/pots/${potId}/add-expense?linkCommitmentId=${commitmentId}`, `/pots/${potId}/commitments/${commitmentId}`)}>
           Add payment
         </ButtonLink>
       ) : null}

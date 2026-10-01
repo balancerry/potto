@@ -1,18 +1,22 @@
 import type { Metadata } from 'next';
-import { DM_Sans, Source_Serif_4 } from 'next/font/google';
+import { Fraunces, Plus_Jakarta_Sans } from 'next/font/google';
 import { Toaster } from 'sonner';
 import './globals.css';
 
-const body = DM_Sans({
+const body = Plus_Jakarta_Sans({
   variable: '--font-body',
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
+  display: 'swap',
+  adjustFontFallback: true,
 });
 
-const display = Source_Serif_4({
+const display = Fraunces({
   variable: '--font-display',
   subsets: ['latin'],
-  weight: ['500', '600', '700'],
+  weight: 'variable',
+  style: ['normal'],
+  axes: ['opsz', 'SOFT', 'WONK'],
 });
 
 export const metadata: Metadata = {

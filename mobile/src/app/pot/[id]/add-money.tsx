@@ -11,10 +11,11 @@ import { EmptyState } from '@/components/potto/EmptyState';
 import { ScreenHeader } from '@/components/potto/ScreenHeader';
 import { Radius, usePottoColors } from '@/constants/potto-theme';
 import { calculateExpenseShares } from '@/logic/accounting';
+import { defaultAccountFor } from '@/logic/pool-money';
 import { canAddMoney, canEditTransaction } from '@/logic/permissions';
 import { usePottoStore } from '@/store/PottoStore';
 import { useToast } from '@/store/ToastContext';
-import type { Transaction } from '@/types/models';
+import type { ReceivedVia, Transaction } from '@/types/models';
 import { formatMoney, toPaise, toRupees } from '@/utils/money';
 
 type ContributionMode = 'same' | 'different';
@@ -30,18 +31,19 @@ export default function AddMoneyScreen() {
     memberId?: string;
   }>();
   const colors = usePottoColors();
-  const { getPot, getCurrentMember, getTransactions } = usePottoStore();
+  const { getPot, getCurrentMember, getTransactions, getPoolManagerMemberId } = usePottoStore();
   const pot = getPot(id);
   const me = getCurrentMember(id);
   const editingTx = editId ? getTransactions(id).find((t) => t.id === editId) : undefined;
+  const managerId = getPoolManagerMemberId(id);
 
   if (!pot) return null;
 
-  const allowed = editingTx ? canEditTransaction(me, editingTx) : canAddMoney(me);
+  const allowed = editingTx ? canEditTransaction(me, editingTx, managerId) : canAddMoney(me, managerId);
   if (!allowed) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.paper }]}>
-        <ScreenHeader title="Add Money" onBack={() => router.back()} />
+        <ScreenHeader title="Add contribution" onBack={() => router.back()} />
         <EmptyState icon="🔒" title="Not permitted" subtitle="You don't have permission to do this in this Pot." />
       </SafeAreaView>
     );
@@ -75,7 +77,7 @@ function CreateContributionForm({
   prefillAmount?: string;
 }) {
   const colors = usePottoColors();
-  const { getPot, addMoney } = usePottoStore();
+  const { getPot, getPoolAccounts, addMoney } = usePottoStore();
   const { showToast } = useToast();
   const pot = getPot(potId);
 
@@ -84,6 +86,9 @@ function CreateContributionForm({
   const [mode, setMode] = useState<ContributionMode>('same');
   const [amountMode, setAmountMode] = useState<AmountMode>('per_member');
   const [differentAmounts, setDifferentAmounts] = useState<Record<string, string>>({});
+  const accounts = getPoolAccounts(potId).filter((a) => a.active);
+  const [receivedVia, setReceivedVia] = useState<ReceivedVia>('online');
+  const [poolAccountId, setPoolAccountId] = useState(defaultAccountFor(accounts, 'online')?.id ?? '');
   const [note, setNote] = useState('');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [error, setError] = useState<string | undefined>();
@@ -136,12 +141,18 @@ function CreateContributionForm({
         return;
       }
     }
+    if (!poolAccountId) {
+      setError('Choose a pool account');
+      return;
+    }
     setError(undefined);
     try {
       await addMoney({
         potId,
         date,
         note: note.trim() || undefined,
+        receivedVia,
+        poolAccountId,
         entries,
       });
       showToast(entries.length > 1 ? `${entries.length} contributions added` : 'Money added');
@@ -155,9 +166,38 @@ function CreateContributionForm({
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.paper }]}>
-      <ScreenHeader title="Add Money" onBack={() => router.back()} />
+      <ScreenHeader title="Add contribution" onBack={() => router.back()} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+          <Field label="Received as">
+            <View style={styles.chipRow}>
+              <Chip
+                label="Online"
+                selected={receivedVia === 'online'}
+                onPress={() => {
+                  setReceivedVia('online');
+                  const next = defaultAccountFor(accounts, 'online');
+                  if (next) setPoolAccountId(next.id);
+                }}
+              />
+              <Chip
+                label="Cash"
+                selected={receivedVia === 'cash'}
+                onPress={() => {
+                  setReceivedVia('cash');
+                  const next = defaultAccountFor(accounts, 'cash');
+                  if (next) setPoolAccountId(next.id);
+                }}
+              />
+            </View>
+          </Field>
+          <Field label="Added to">
+            <View style={styles.chipRow}>
+              {accounts.map((a) => (
+                <Chip key={a.id} label={a.name} selected={poolAccountId === a.id} onPress={() => setPoolAccountId(a.id)} />
+              ))}
+            </View>
+          </Field>
           {mode === 'same' && (
             <Field label={amountLabel!}>
               <AmountInput value={amountText} onChangeText={(v) => { setAmountText(v); setError(undefined); }} autoFocus />
@@ -244,7 +284,7 @@ function CreateContributionForm({
           </Field>
 
           <View style={styles.actions}>
-            <PrimaryButton label="Add Money" onPress={submit} fullWidth />
+            <PrimaryButton label="Add contribution" onPress={submit} fullWidth />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -258,13 +298,16 @@ function CreateContributionForm({
 
 function EditContributionForm({ potId, tx }: { potId: string; tx: Transaction }) {
   const colors = usePottoColors();
-  const { getPot, updateContribution } = usePottoStore();
+  const { getPot, getPoolAccounts, updateContribution } = usePottoStore();
   const { showToast } = useToast();
   const pot = getPot(potId);
 
   const [amount, setAmount] = useState(String(toRupees(tx.amount)));
   const [memberId, setMemberId] = useState(tx.paidBy ?? '');
   const [date, setDate] = useState(tx.date);
+  const accounts = getPoolAccounts(potId).filter((a) => a.active);
+  const [receivedVia, setReceivedVia] = useState<ReceivedVia>(tx.receivedVia ?? 'online');
+  const [poolAccountId, setPoolAccountId] = useState(tx.poolAccountId ?? defaultAccountFor(accounts, tx.receivedVia ?? 'online')?.id ?? '');
   const [note, setNote] = useState(tx.note ?? '');
   const [error, setError] = useState<string | undefined>();
 
@@ -286,6 +329,8 @@ function EditContributionForm({ potId, tx }: { potId: string; tx: Transaction })
         amount: paise,
         date,
         note: note.trim() || undefined,
+        receivedVia,
+        poolAccountId,
       });
       showToast('Changes saved');
       router.back();
@@ -374,6 +419,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   flex: { flex: 1 },
   scroll: { padding: 20, paddingBottom: 40 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   field: { marginBottom: 20 },
   label: { fontSize: 12.5, fontWeight: '600', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.4 },
   input: { paddingVertical: 12, paddingHorizontal: 14, borderRadius: 9, borderWidth: 1, fontSize: 15 },

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { deleteTransaction } from '@/lib/actions/transactions';
 import { Button, ButtonLink } from '@/components/ui/button';
+import { withReturn } from '@/lib/navigation/pot-trail';
 
 export function TransactionActions({
   potId,
@@ -32,12 +33,13 @@ export function TransactionActions({
     router.refresh();
   }
 
+  const txPath = `/pots/${potId}/transactions/${txId}`;
   const editHref =
     type === 'contribution'
-      ? `/pots/${potId}/add-money?editId=${txId}`
+      ? withReturn(`/pots/${potId}/add-money?editId=${txId}`, txPath)
       : type === 'settlement'
-        ? `/pots/${potId}/edit-settlement?txId=${txId}`
-        : `/pots/${potId}/add-expense?editId=${txId}`;
+        ? withReturn(`/pots/${potId}/edit-settlement?txId=${txId}`, txPath)
+        : withReturn(`/pots/${potId}/add-expense?editId=${txId}`, txPath);
 
   return (
     <div className="flex flex-wrap gap-2">

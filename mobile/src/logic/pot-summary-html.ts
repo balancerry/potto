@@ -105,7 +105,7 @@ export function buildPotSummaryHtml(vm: PotSummaryViewModel): string {
   statusLines.push(
     vm.upcoming.items.length === 0
       ? '<div class="status-line ok">✓ No outstanding payments</div>'
-      : `<div class="status-line info">Upcoming: ${formatMoney(vm.status.upcomingRemaining)} remaining</div>`,
+      : `<div class="status-line info">Planned: ${formatMoney(vm.status.upcomingRemaining)} remaining</div>`,
   );
   statusLines.push(
     vm.settlement.allSettled
@@ -227,15 +227,15 @@ export function buildPotSummaryHtml(vm: PotSummaryViewModel): string {
   }
   const expenseDetails = section('Pool Expenses', expenseDetailsBody);
 
-  // ---- Upcoming Payments --------------------------------------------------
+  // ---- Planned Payments --------------------------------------------------
   let upcomingBody: string;
   if (vm.upcoming.items.length === 0) {
-    upcomingBody = emptyNote('No upcoming payments.');
+    upcomingBody = emptyNote('No planned payments.');
   } else {
     const STATUS_LABEL: Record<string, string> = {
       planned: 'Planned',
-      partially_paid: 'Partially Paid',
-      fully_paid: 'Fully Paid',
+      partially_paid: 'Partially paid',
+      fully_paid: 'Paid',
       cancelled: 'Cancelled',
     };
     const rows = vm.upcoming.items
@@ -263,10 +263,10 @@ export function buildPotSummaryHtml(vm: PotSummaryViewModel): string {
         <thead><tr><th>Vendor / Title</th><th class="num-cell">Total</th><th class="num-cell">Paid</th><th class="num-cell">Remaining</th><th>Due</th><th>Status</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
-      <p class="footnote">Upcoming Payments are planned obligations — not included in Total Spent, Pool Balance, or Settlement.</p>
+      <p class="footnote">Planned payments are not included in Total Spent, Pool Balance, or Settlement.</p>
     `;
   }
-  const upcoming = section('Upcoming Payments', upcomingBody);
+  const upcoming = section('Planned Payments', upcomingBody);
 
   // ---- Member Balances ------------------------------------------------
   let balancesBody: string;

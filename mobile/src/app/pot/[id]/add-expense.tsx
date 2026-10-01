@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { CategoryPicker } from '@/components/categories/CategoryPicker';
 import { AmountInput } from '@/components/potto/AmountInput';
 import { PrimaryButton } from '@/components/potto/Button';
 import { Chip } from '@/components/potto/Chip';
@@ -11,28 +12,28 @@ import { DatePickerField } from '@/components/potto/DatePickerField';
 import { EmptyState } from '@/components/potto/EmptyState';
 import { ScreenHeader } from '@/components/potto/ScreenHeader';
 import { SplitSelector } from '@/components/potto/SplitSelector';
-import { EXPENSE_CATEGORIES } from '@/constants/categories';
 import { Radius, usePottoColors } from '@/constants/potto-theme';
 import { deriveCommitmentStatus, calculateCommitmentPaid } from '@/logic/commitments';
-import { canAddExpense, canEditTransaction } from '@/logic/permissions';
+import { defaultAccountFor } from '@/logic/pool-money';
+import { canAddExpense, canEditTransaction, canManageCategories } from '@/logic/permissions';
 import { usePottoStore } from '@/store/PottoStore';
 import { useToast } from '@/store/ToastContext';
-import type { Commitment, CommitmentPayment, PaymentSource, Pot, Split, SplitMethod, Transaction } from '@/types/models';
+import type { Commitment, CommitmentPayment, PaymentSource, Pot, PotCategory, Split, SplitMethod, Transaction } from '@/types/models';
 import { formatMoney, toPaise, toRupees } from '@/utils/money';
 
-const CATEGORIES = EXPENSE_CATEGORIES;
 
 export default function AddExpenseScreen() {
   const { id, editId, linkCommitmentId } = useLocalSearchParams<{ id: string; editId?: string; linkCommitmentId?: string }>();
   const colors = usePottoColors();
-  const { getPot, getCurrentMember, getTransactions, getCommitments, getCommitmentPayments } = usePottoStore();
+  const { getPot, getCurrentMember, getTransactions, getCommitments, getCommitmentPayments, getPoolManagerMemberId, getCategories } = usePottoStore();
   const pot = getPot(id);
   const me = getCurrentMember(id);
   const editingTx = editId ? getTransactions(id).find((t) => t.id === editId) : undefined;
+  const managerId = getPoolManagerMemberId(id);
 
   if (!pot) return null;
 
-  const allowed = editingTx ? canEditTransaction(me, editingTx) : canAddExpense(me);
+  const allowed = editingTx ? canEditTransaction(me, editingTx, managerId) : canAddExpense(me, managerId);
   if (!allowed) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.paper }]}>
@@ -56,6 +57,8 @@ export default function AddExpenseScreen() {
       potId={id}
       pot={pot}
       defaultMemberId={me?.id}
+      categories={getCategories(id)}
+      canManageCategories={canManageCategories(me)}
       editingTx={editingTx}
       linkableCommitments={linkableCommitments}
       commitmentPayments={commitmentPayments}
@@ -69,6 +72,8 @@ function ExpenseForm({
   potId,
   pot,
   defaultMemberId,
+  categories,
+  canManageCategories: canCustomizeCategories,
   editingTx,
   linkableCommitments,
   commitmentPayments,
@@ -78,6 +83,8 @@ function ExpenseForm({
   potId: string;
   pot: Pot;
   defaultMemberId?: string;
+  categories: PotCategory[];
+  canManageCategories: boolean;
   editingTx?: Transaction;
   linkableCommitments: Commitment[];
   commitmentPayments: CommitmentPayment[];
@@ -85,15 +92,19 @@ function ExpenseForm({
   forcedCommitmentId?: string;
 }) {
   const colors = usePottoColors();
-  const { addExpense, updateExpense, addCommitmentPayment, createCommitmentWithPayment } = usePottoStore();
+  const { addExpense, updateExpense, addCommitmentPayment, createCommitmentWithPayment, getPoolAccounts } = usePottoStore();
   const { showToast } = useToast();
   const isEdit = !!editingTx;
 
   const [description, setDescription] = useState(editingTx?.description ?? '');
   const [amount, setAmount] = useState(editingTx ? String(toRupees(editingTx.amount)) : '');
   const [paidBy, setPaidBy] = useState(editingTx?.paidBy ?? defaultMemberId ?? pot.members[0]?.id ?? '');
+  const accounts = getPoolAccounts(potId).filter((a) => a.active);
   const [source, setSource] = useState<PaymentSource>(editingTx?.paymentSource ?? 'pool');
-  const [category, setCategory] = useState<string | undefined>(editingTx?.category);
+  const [poolAccountId, setPoolAccountId] = useState(
+    editingTx?.poolAccountId ?? defaultAccountFor(accounts, 'online')?.id ?? accounts[0]?.id ?? '',
+  );
+  const [categoryId, setCategoryId] = useState<string | undefined>(editingTx?.categoryId);
   const [note, setNote] = useState(editingTx?.note ?? '');
   const [date, setDate] = useState(editingTx?.date ?? new Date().toISOString().slice(0, 10));
   const [participantIds, setParticipantIds] = useState<string[]>(
@@ -139,13 +150,19 @@ function ExpenseForm({
     if (!splitValid) return;
     if (!isEdit && commitmentLink.mode !== 'none' && !commitmentLinkValid) return;
 
+    if (source === 'pool' && !poolAccountId) {
+      setAmountError('Choose which pool account paid');
+      return;
+    }
+
     const payload = {
       description: description.trim(),
       amount: amountPaise,
       paidBy,
       paymentSource: source,
+      poolAccountId: source === 'pool' ? poolAccountId : undefined,
       date,
-      category,
+      categoryId,
       participants: participantIds,
       splitMethod: method,
       splits,
@@ -180,7 +197,7 @@ function ExpenseForm({
         commitment: {
           title: commitmentLink.title,
           vendorName: commitmentLink.vendorName,
-          category: commitmentLink.category,
+          categoryId,
           totalAmount: commitmentLink.totalAmount,
           dueDate: commitmentLink.dueDate,
         },
@@ -190,7 +207,7 @@ function ExpenseForm({
         setCommitmentLinkError(result.reason);
         return;
       }
-      showToast('Upcoming Payment created and payment saved');
+      showToast('Planned payment created and payment saved');
       router.back();
       return;
     }
@@ -226,27 +243,39 @@ function ExpenseForm({
             <AmountInput value={amount} onChangeText={(v) => { setAmount(v); setAmountError(undefined); }} error={amountError} />
           </Field>
 
-          <Field label="Paid by">
+          <Field label="Who paid?">
             <View style={styles.chipRow}>
-              {pot.members.map((m) => (
-                <Chip key={m.id} label={m.name} selected={paidBy === m.id} onPress={() => setPaidBy(m.id)} />
-              ))}
+              <Chip label="Pool" selected={source === 'pool'} onPress={() => setSource('pool')} />
+              <Chip label="Member" selected={source === 'personal'} onPress={() => setSource('personal')} />
             </View>
           </Field>
 
-          <Field label="Payment source">
-            <View style={styles.chipRow}>
-              <Chip label="Shared Pot" selected={source === 'pool'} onPress={() => setSource('pool')} />
-              <Chip label="Personally" selected={source === 'personal'} onPress={() => setSource('personal')} />
-            </View>
-          </Field>
+          {source === 'pool' ? (
+            <Field label="Paid from">
+              <View style={styles.chipRow}>
+                {accounts.map((a) => (
+                  <Chip key={a.id} label={a.name} selected={poolAccountId === a.id} onPress={() => setPoolAccountId(a.id)} />
+                ))}
+              </View>
+            </Field>
+          ) : (
+            <Field label="Paid by">
+              <View style={styles.chipRow}>
+                {pot.members.filter((m) => m.status === 'active').map((m) => (
+                  <Chip key={m.id} label={m.name} selected={paidBy === m.id} onPress={() => setPaidBy(m.id)} />
+                ))}
+              </View>
+            </Field>
+          )}
 
           <Field label="Category (optional)">
-            <View style={styles.chipRow}>
-              {CATEGORIES.map((c) => (
-                <Chip key={c} label={c} selected={category === c} onPress={() => setCategory(category === c ? undefined : c)} />
-              ))}
-            </View>
+            <CategoryPicker
+              potId={potId}
+              categories={categories}
+              selectedId={categoryId}
+              onSelect={setCategoryId}
+              canManage={canCustomizeCategories}
+            />
           </Field>
 
           {!isEdit && (
@@ -257,7 +286,6 @@ function ExpenseForm({
                 transactions={transactions}
                 amountPaise={amountPaise}
                 defaultTitle={description}
-                defaultCategory={category}
                 forcedCommitmentId={forcedCommitmentId}
                 onResultChange={(result, valid, error) => {
                   setCommitmentLink(result);

@@ -9,12 +9,14 @@ import {
 import { canCreateCommitment } from '@/lib/core/logic/permissions';
 import { formatDate, formatMoney } from '@/lib/core/money';
 import { getPotBundle } from '@/lib/queries/pots';
+import { CategoryBadge } from '@/components/categories/category-icon';
+import { resolveCategory } from '@/lib/core/logic/categories';
 import { Badge } from '@/components/ui/badge';
 import { ButtonLink } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 
-export const metadata = { title: 'Upcoming payments' };
+export const metadata = { title: 'Planned payments' };
 
 export default async function CommitmentsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -36,28 +38,28 @@ export default async function CommitmentsPage({ params }: { params: Promise<{ id
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="font-display text-2xl font-semibold text-ink">Upcoming payments</h2>
-          <p className="mt-1 text-sm text-ink-soft">Planned obligations — they don&apos;t affect the pool until paid.</p>
+          <h2 className="font-display text-2xl font-semibold text-ink">Planned payments</h2>
+          <p className="mt-1 text-sm text-ink-soft">Keep track of what your group still needs to pay.</p>
         </div>
         {canCreateCommitment(bundle.currentMember ?? undefined) ? (
-          <ButtonLink href={`/pots/${id}/commitments/new`}>Add upcoming</ButtonLink>
+          <ButtonLink href={`/pots/${id}/commitments/new`}>Add planned payment</ButtonLink>
         ) : null}
       </div>
 
       {items.length === 0 ? (
         <EmptyState
-          title="No upcoming payments"
-          description="Track hotel deposits, tickets, and other planned costs."
+          title="Nothing planned yet"
+          description="Add a hotel, vendor, ticket, or booking your group plans to pay later."
           action={
             canCreateCommitment(bundle.currentMember ?? undefined) ? (
-              <ButtonLink href={`/pots/${id}/commitments/new`}>Create one</ButtonLink>
+              <ButtonLink href={`/pots/${id}/commitments/new`}>Add planned payment</ButtonLink>
             ) : undefined
           }
         />
       ) : (
         <>
           <section className="space-y-3">
-            <h3 className="font-display text-lg font-semibold">Open</h3>
+            <h3 className="font-sans text-lg font-semibold">Open</h3>
             {open.length === 0 ? (
               <p className="text-sm text-ink-soft">Nothing outstanding.</p>
             ) : (
@@ -76,11 +78,13 @@ export default async function CommitmentsPage({ params }: { params: Promise<{ id
                               <Badge tone="accent" className="capitalize">
                                 {status.replace('_', ' ')}
                               </Badge>
-                              {c.category ? <Badge>{c.category}</Badge> : null}
+                              {c.categoryId ? (
+                                <CategoryBadge category={resolveCategory(c.categoryId, bundle.categories)} className="self-center" />
+                              ) : null}
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="font-medium">{formatMoney(remaining)} left</p>
+                            <p className="font-money font-semibold">{formatMoney(remaining)} left</p>
                             <p className="text-xs text-ink-soft">
                               {formatMoney(paid)} / {formatMoney(c.totalAmount)}
                             </p>
@@ -96,7 +100,7 @@ export default async function CommitmentsPage({ params }: { params: Promise<{ id
 
           {done.length > 0 ? (
             <section className="space-y-3">
-              <h3 className="font-display text-lg font-semibold text-ink-soft">Closed</h3>
+              <h3 className="font-sans text-lg font-semibold text-ink-soft">Closed</h3>
               <ul className="space-y-2 text-sm">
                 {done.map(({ c, status }) => (
                   <li key={c.id}>

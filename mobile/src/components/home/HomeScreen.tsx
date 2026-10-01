@@ -1,5 +1,5 @@
-import { router } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
@@ -9,7 +9,15 @@ import { ConfirmDialog } from '@/components/potto/ConfirmDialog';
 import { EmptyState } from '@/components/potto/EmptyState';
 import { PotCard } from '@/components/potto/PotCard';
 import { PottoFonts, usePottoColors } from '@/constants/potto-theme';
-import { calculateMemberBalances, calculatePoolBalance } from '@/logic/accounting';
+import { sortPotsByPinThenVisit, MAX_PINNED_POTS, type PotVisitMap } from '@/lib/recent-pots';
+import { fetchUserPotPrefs, pinPot, unpinPot } from '@/lib/user-pot-prefs';
+import { canDeletePot } from '@/logic/permissions';
+import {
+  calculateMemberBalances,
+  calculatePoolBalance,
+  calculateTotalContributions,
+  calculateTotalSpent,
+} from '@/logic/accounting';
 import { useAuth } from '@/store/AuthContext';
 import { useNotifications } from '@/store/NotificationsContext';
 import { usePottoStore } from '@/store/PottoStore';
@@ -39,28 +47,72 @@ function BellIcon({ color }: { color: string }) {
 
 export function HomeScreen() {
   const colors = usePottoColors();
-  const { profile, signOut } = useAuth();
+  const { profile, user, signOut } = useAuth();
   const { unreadCount } = useNotifications();
   const { state, getTransactions, getCurrentMember, deletePot, clearWorkspace, reloadWorkspace } =
     usePottoStore();
   const { showToast } = useToast();
-  const pots = Object.values(state.pots).filter((p) => p.status !== 'archived');
+  const [visits, setVisits] = useState<PotVisitMap>({});
+  const [pins, setPins] = useState<string[]>([]);
+  const pots = useMemo(() => {
+    const active = Object.values(state.pots).filter((p) => p.status !== 'archived');
+    return sortPotsByPinThenVisit(active, visits, pins);
+  }, [state.pots, visits, pins]);
   const displayFont = Platform.OS === 'web' ? undefined : PottoFonts.display;
   const [potPendingDelete, setPotPendingDelete] = useState<Pot | null>(null);
   const [signingOut, setSigningOut] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
+  const reloadPrefs = useCallback(async () => {
+    if (!user?.id) {
+      setVisits({});
+      setPins([]);
+      return;
+    }
+    const prefs = await fetchUserPotPrefs();
+    setVisits(prefs.visits);
+    setPins(prefs.pins);
+  }, [user?.id]);
+
+  useEffect(() => {
+    void reloadPrefs();
+  }, [reloadPrefs, state.pots]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void reloadPrefs();
+    }, [reloadPrefs]),
+  );
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
       await reloadWorkspace();
+      await reloadPrefs();
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Could not refresh');
     } finally {
       setRefreshing(false);
     }
-  }, [reloadWorkspace, showToast]);
+  }, [reloadWorkspace, showToast, reloadPrefs]);
+
+  const onTogglePin = async (potId: string) => {
+    if (!user?.id) return;
+    if (pins.includes(potId)) {
+      const next = await unpinPot(user.id, potId);
+      setPins(next);
+      showToast('Pot unpinned');
+      return;
+    }
+    const result = await pinPot(user.id, potId);
+    setPins(result.pins);
+    if (!result.ok) {
+      showToast(`You can pin up to ${MAX_PINNED_POTS} pots`);
+      return;
+    }
+    showToast('Pot pinned to top');
+  };
 
   const confirmDelete = async () => {
     if (!potPendingDelete) return;
@@ -118,7 +170,9 @@ export function HomeScreen() {
           </Pressable>
         </View>
       </View>
-      <Text style={[styles.hello, { color: colors.inkSoft }]}>Welcome back, {displayName}</Text>
+      <Text style={[styles.hello, { color: colors.ink, fontFamily: displayFont }]}>
+        Welcome back, {displayName}
+      </Text>
       {!!profile?.email && (
         <Text style={[styles.email, { color: colors.inkSoft }]}>{profile.email}</Text>
       )}
@@ -154,9 +208,13 @@ export function HomeScreen() {
                   key={pot.id}
                   pot={pot}
                   poolBalance={calculatePoolBalance(txs)}
+                  contributed={calculateTotalContributions(txs)}
+                  spent={calculateTotalSpent(txs)}
                   userBalance={me ? (balances[me.id] ?? 0) : 0}
+                  pinned={pins.includes(pot.id)}
                   onPress={() => router.push(`/pot/${pot.id}`)}
-                  onDelete={() => setPotPendingDelete(pot)}
+                  onDelete={canDeletePot(me) ? () => setPotPendingDelete(pot) : undefined}
+                  onTogglePin={() => void onTogglePin(pot.id)}
                 />
               );
             })}
@@ -221,8 +279,8 @@ const styles = StyleSheet.create({
   wordmark: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   mark: { width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   wordmarkText: { fontSize: 22, fontWeight: '600' },
-  hello: { fontSize: 13.5, paddingHorizontal: 20, marginTop: 6 },
-  email: { fontSize: 12, paddingHorizontal: 20, marginTop: 2 },
+  hello: { fontSize: 26, fontWeight: '600', paddingHorizontal: 20, marginTop: 10 },
+  email: { fontSize: 12, paddingHorizontal: 20, marginTop: 4 },
   sectionLabel: {
     fontSize: 12.5,
     fontWeight: '600',
@@ -233,7 +291,15 @@ const styles = StyleSheet.create({
   },
   scroll: { paddingBottom: 24, flexGrow: 1 },
   list: { paddingHorizontal: 20, gap: 12 },
-  footer: { padding: 20, borderTopWidth: 1 },
+  footer: {
+    padding: 20,
+    borderTopWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 6,
+  },
   footerRow: { flexDirection: 'row', gap: 10 },
   flex1: { flex: 1 },
 });

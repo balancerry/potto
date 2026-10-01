@@ -11,14 +11,17 @@ import {
   canAddCommitmentPayment,
   canCancelCommitment,
   canEditCommitment,
+  canManageCategories,
 } from '@/lib/core/logic/permissions';
+import { resolveCategory } from '@/lib/core/logic/categories';
 import { formatDateFull, formatMoney } from '@/lib/core/money';
 import { getPotBundle } from '@/lib/queries/pots';
+import { CategoryBadge } from '@/components/categories/category-icon';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardTitle } from '@/components/ui/card';
-import { ButtonLink } from '@/components/ui/button';
+import { withReturn } from '@/lib/navigation/pot-trail';
 
-export const metadata = { title: 'Upcoming payment' };
+export const metadata = { title: 'Planned payment' };
 
 export default async function CommitmentDetailPage({
   params,
@@ -45,9 +48,14 @@ export default async function CommitmentDetailPage({
     return (
       <div className="space-y-6">
         <div>
-          <h2 className="font-display text-2xl font-semibold text-ink">Edit upcoming payment</h2>
+          <h2 className="font-sans text-2xl font-semibold text-ink">Edit planned payment</h2>
         </div>
-        <CommitmentForm potId={id} editing={commitment} />
+        <CommitmentForm
+          potId={id}
+          editing={commitment}
+          categories={bundle.categories}
+          canManageCategories={canManageCategories(me)}
+        />
       </div>
     );
   }
@@ -58,15 +66,14 @@ export default async function CommitmentDetailPage({
   return (
     <div className="mx-auto max-w-lg space-y-6">
       <div>
-        <ButtonLink href={`/pots/${id}/commitments`} variant="ghost" size="sm" className="mb-2 -ml-2">
-          ← Upcoming
-        </ButtonLink>
-        <h2 className="font-display text-2xl font-semibold text-ink">{commitment.title}</h2>
+        <h2 className="font-sans text-2xl font-semibold text-ink">{commitment.title}</h2>
         <div className="mt-2 flex flex-wrap gap-2">
           <Badge tone="accent" className="capitalize">
             {status.replace('_', ' ')}
           </Badge>
-          {commitment.category ? <Badge>{commitment.category}</Badge> : null}
+          {commitment.categoryId ? (
+            <CategoryBadge category={resolveCategory(commitment.categoryId, bundle.categories)} className="self-center" />
+          ) : null}
         </div>
       </div>
 
@@ -101,7 +108,7 @@ export default async function CommitmentDetailPage({
               const tx = bundle.transactions.find((t) => t.id === p.transactionId);
               return (
                 <li key={p.id}>
-                  <Link href={`/pots/${id}/transactions/${p.transactionId}`}>
+                  <Link href={withReturn(`/pots/${id}/transactions/${p.transactionId}`, `/pots/${id}/commitments/${commitmentId}`)}>
                     <Card className="flex justify-between gap-3 p-3 text-sm hover:bg-surface-sunk/40">
                       <div>
                         <p className="font-medium">{tx?.description ?? 'Payment'}</p>
@@ -110,7 +117,7 @@ export default async function CommitmentDetailPage({
                           {tx?.paidBy ? ` · ${nameOf(tx.paidBy)}` : ''}
                         </p>
                       </div>
-                      <p className="font-medium">{formatMoney(p.amount)}</p>
+                      <p className="font-money font-semibold">{formatMoney(p.amount)}</p>
                     </Card>
                   </Link>
                 </li>
@@ -127,7 +134,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-[var(--radius-md)] bg-surface-sunk p-3 text-center">
       <p className="text-xs text-ink-soft">{label}</p>
-      <p className="mt-1 font-display text-lg font-semibold">{value}</p>
+      <p className="mt-1 font-money text-lg font-bold">{value}</p>
     </div>
   );
 }

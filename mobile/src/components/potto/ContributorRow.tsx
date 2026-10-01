@@ -37,7 +37,7 @@ export function ContributorRow({
     <Pressable
       onPress={onPress}
       style={[styles.row, { borderBottomColor: colors.line, backgroundColor: isBelow ? colors.goldSoft : undefined }]}>
-      <Avatar name={member.name} admin={member.role === 'admin'} />
+      <Avatar name={member.name} admin={member.role === 'admin' || member.role === 'owner'} />
       <View style={styles.body}>
         <View style={styles.headRow}>
           <Text numberOfLines={1} style={[styles.name, { color: colors.ink, flexShrink: 1 }]}>

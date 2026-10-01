@@ -2,10 +2,9 @@
 
 import { z } from 'zod';
 import { generateInviteCode, generateJoinCode } from '@/lib/core/logic/invites';
-import { canEditPot, canArchivePot } from '@/lib/core/logic/permissions';
+import { canEditPot, canArchivePot, canDeletePot } from '@/lib/core/logic/permissions';
 import { actionFail, actionOk, type ActionResult } from '@/lib/errors';
 import {
-  assertAdmin,
   getCurrentMember,
   requireUser,
   revalidatePotPaths,
@@ -15,8 +14,6 @@ const createPotSchema = z.object({
   name: z.string().trim().min(1, 'Enter a pot name'),
   description: z.string().trim().optional(),
   memberNames: z.array(z.string()).default([]),
-  startingContributionPaise: z.number().int().positive().optional(),
-  expectedContributionPaise: z.number().int().positive().optional(),
 });
 
 const updateDetailsSchema = z.object({
@@ -35,8 +32,8 @@ export async function createPot(input: z.infer<typeof createPotSchema>): Promise
       p_name: parsed.name,
       p_description: parsed.description ?? null,
       p_member_names: parsed.memberNames.filter((n) => n.trim().length > 0),
-      p_starting_contribution: parsed.startingContributionPaise ?? null,
-      p_expected_contribution_per_member: parsed.expectedContributionPaise ?? null,
+      p_starting_contribution: null,
+      p_expected_contribution_per_member: null,
     });
 
     if (error) return actionFail(error);
@@ -105,7 +102,7 @@ export async function deletePot(potId: string): Promise<ActionResult> {
     if (!auth.user) return actionFail(auth.error);
 
     const me = await getCurrentMember(auth.supabase, potId, auth.user.id);
-    assertAdmin(me);
+    if (!canDeletePot(me)) return actionFail('Only the pot owner can delete this pot');
 
     // Ordered server-side delete — plain pots.delete() fails FK checks on
     // transaction_splits / transactions.created_by when members cascade first.

@@ -34,7 +34,7 @@ const dateStr = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const commitmentFields = z.object({
   title: z.string().trim().min(1, 'Enter a title'),
   vendorName: z.string().trim().optional(),
-  category: z.string().optional(),
+  categoryId: z.string().uuid().optional(),
   description: z.string().trim().optional(),
   totalAmount: paise,
   dueDate: dateStr.optional().nullable(),
@@ -45,8 +45,9 @@ const paymentSchema = z.object({
   amount: paise,
   paidBy: z.string().uuid(),
   paymentSource: z.enum(['pool', 'personal']),
+  poolAccountId: z.string().uuid().optional(),
   date: dateStr,
-  category: z.string().optional(),
+  categoryId: z.string().uuid().optional(),
   participants: z.array(z.string().uuid()).min(1),
   splitMethod: z.enum(['equal', 'custom', 'percentage']),
   splits: z
@@ -96,7 +97,7 @@ export async function createCommitment(
       p_pot_id: potId,
       p_title: parsed.title,
       p_vendor_name: parsed.vendorName ?? null,
-      p_category: parsed.category ?? null,
+      p_category_id: parsed.categoryId ?? null,
       p_description: parsed.description ?? null,
       p_total_amount: parsed.totalAmount,
       p_due_date: parsed.dueDate ?? null,
@@ -134,7 +135,7 @@ export async function updateCommitment(
       .eq('pot_id', potId)
       .maybeSingle();
     if (loadErr) return actionFail(loadErr);
-    if (!existingRow) return actionFail('Upcoming payment not found');
+    if (!existingRow) return actionFail('Planned payment not found');
 
     const existing = mapCommitment(existingRow as CommitmentRow);
     if (!canEditCommitment(me, existing)) return actionFail('You do not have permission to do that');
@@ -143,7 +144,7 @@ export async function updateCommitment(
       p_commitment_id: commitmentId,
       p_title: parsed.title,
       p_vendor_name: parsed.vendorName ?? null,
-      p_category: parsed.category ?? null,
+      p_category_id: parsed.categoryId ?? null,
       p_description: parsed.description ?? null,
       p_total_amount: parsed.totalAmount,
       p_due_date: parsed.dueDate ?? null,
@@ -198,11 +199,11 @@ export async function addCommitmentPayment(
       .eq('pot_id', potId)
       .maybeSingle();
     if (cErr) return actionFail(cErr);
-    if (!commitmentRow) return actionFail('Upcoming payment not found');
+    if (!commitmentRow) return actionFail('Planned payment not found');
 
     const commitment = mapCommitment(commitmentRow as CommitmentRow);
     if (commitment.status === 'cancelled') {
-      return actionFail('This upcoming payment has been cancelled');
+      return actionFail('This planned payment has been cancelled');
     }
 
     const [{ data: paymentRows }, { data: txRows }] = await Promise.all([
@@ -225,6 +226,10 @@ export async function addCommitmentPayment(
     const amountCheck = validateCommitmentPaymentAmount(remaining, parsed.amount);
     if (!amountCheck.valid) return actionFail(amountCheck.error);
 
+    if (parsed.paymentSource === 'pool' && !parsed.poolAccountId) {
+      return actionFail('Choose which pool account paid');
+    }
+
     const type = parsed.paymentSource === 'pool' ? 'pool_expense' : 'member_expense';
 
     const { data: tx, error: txErr } = await auth.supabase
@@ -237,7 +242,8 @@ export async function addCommitmentPayment(
         date: parsed.date,
         paid_by: parsed.paidBy,
         payment_source: parsed.paymentSource,
-        category: parsed.category ?? null,
+        pool_account_id: parsed.paymentSource === 'pool' ? parsed.poolAccountId : null,
+        category_id: parsed.categoryId ?? null,
         participants: parsed.participants,
         split_method: parsed.splitMethod as SplitMethod,
         note: parsed.note ?? null,

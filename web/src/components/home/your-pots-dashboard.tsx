@@ -1,9 +1,11 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, RefreshCw, Search, Users, X } from 'lucide-react';
+import { Compass, Plus, RefreshCw, Search, Users, X } from 'lucide-react';
 import type { PotDisplayStatus, PotListItem } from '@/lib/queries/pots';
+import { pinRank, visitTimestamp, type PotVisitMap } from '@/lib/recent-pots';
+import { fetchUserPotPrefs } from '@/lib/user-pot-prefs';
 import { EmptyPotsState } from '@/components/home/empty-pots-state';
 import { PotCard } from '@/components/home/pot-card';
 import { Button, ButtonLink } from '@/components/ui/button';
@@ -11,16 +13,17 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
 type FilterKey = 'all' | PotDisplayStatus;
-type SortKey = 'newest' | 'oldest' | 'name' | 'balance' | 'recent';
+type SortKey = 'visited' | 'newest' | 'oldest' | 'name' | 'balance' | 'recent';
 
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'active', label: 'Active' },
-  { key: 'upcoming', label: 'Upcoming' },
+  { key: 'upcoming', label: 'Planned' },
   { key: 'archived', label: 'Archived' },
 ];
 
 const SORTS: { key: SortKey; label: string }[] = [
+  { key: 'visited', label: 'Most recently visited' },
   { key: 'newest', label: 'Newest first' },
   { key: 'oldest', label: 'Oldest first' },
   { key: 'name', label: 'Name A–Z' },
@@ -42,7 +45,7 @@ function matchesSearch(item: PotListItem, query: string): boolean {
   return name.includes(q) || description.includes(q);
 }
 
-function sortItems(items: PotListItem[], sort: SortKey): PotListItem[] {
+function secondarySort(items: PotListItem[], sort: SortKey, visits: PotVisitMap): PotListItem[] {
   const copy = [...items];
   switch (sort) {
     case 'oldest':
@@ -53,10 +56,26 @@ function sortItems(items: PotListItem[], sort: SortKey): PotListItem[] {
       return copy.sort((a, b) => b.poolBalance - a.poolBalance);
     case 'recent':
       return copy.sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt));
+    case 'visited':
+      return copy.sort((a, b) => {
+        const diff = visitTimestamp(visits, b.pot.id) - visitTimestamp(visits, a.pot.id);
+        if (diff !== 0) return diff;
+        return b.pot.createdAt.localeCompare(a.pot.createdAt);
+      });
     case 'newest':
     default:
       return copy.sort((a, b) => b.pot.createdAt.localeCompare(a.pot.createdAt));
   }
+}
+
+function sortItems(items: PotListItem[], sort: SortKey, visits: PotVisitMap, pins: string[]): PotListItem[] {
+  const secondaryOrder = secondarySort(items, sort, visits);
+  const indexById = new Map(secondaryOrder.map((item, index) => [item.pot.id, index]));
+  return [...items].sort((a, b) => {
+    const pinDiff = pinRank(pins, a.pot.id) - pinRank(pins, b.pot.id);
+    if (pinDiff !== 0) return pinDiff;
+    return (indexById.get(a.pot.id) ?? 0) - (indexById.get(b.pot.id) ?? 0);
+  });
 }
 
 export function YourPotsDashboard({ items }: { items: PotListItem[] }) {
@@ -64,7 +83,36 @@ export function YourPotsDashboard({ items }: { items: PotListItem[] }) {
   const [pending, startTransition] = useTransition();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<FilterKey>('all');
-  const [sort, setSort] = useState<SortKey>('newest');
+  const [sort, setSort] = useState<SortKey>('visited');
+  const [visits, setVisits] = useState<PotVisitMap>({});
+  const [pins, setPins] = useState<string[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPrefs() {
+      const prefs = await fetchUserPotPrefs();
+      if (cancelled) return;
+      setUserId(prefs.userId);
+      setVisits(prefs.visits);
+      setPins(prefs.pins);
+    }
+
+    void loadPrefs();
+
+    function onVisible() {
+      if (document.visibilityState === 'visible') void loadPrefs();
+    }
+
+    window.addEventListener('focus', onVisible);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('focus', onVisible);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [items]);
 
   const searched = useMemo(
     () => items.filter((item) => matchesSearch(item, query)),
@@ -74,8 +122,8 @@ export function YourPotsDashboard({ items }: { items: PotListItem[] }) {
   const filtered = useMemo(() => {
     const statusFiltered =
       filter === 'all' ? searched : searched.filter((item) => item.displayStatus === filter);
-    return sortItems(statusFiltered, sort);
-  }, [searched, filter, sort]);
+    return sortItems(statusFiltered, sort, visits, pins);
+  }, [searched, filter, sort, visits, pins]);
 
   const hasPots = items.length > 0;
 
@@ -85,28 +133,48 @@ export function YourPotsDashboard({ items }: { items: PotListItem[] }) {
     });
   }
 
+  function onPinsChange(next: string[]) {
+    setPins(next);
+  }
+
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="font-display text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
+    <div className={cn('space-y-8', !hasPots && 'mx-auto w-full max-w-[1040px]')}>
+      <div
+        className={cn(
+          'flex flex-col gap-4 sm:flex-row sm:justify-between',
+          hasPots ? 'sm:items-end' : 'sm:items-center',
+        )}
+      >
+        <div className="relative min-w-0">
+          {hasPots ? (
+            <Compass
+              aria-hidden
+              strokeWidth={1.25}
+              className="pointer-events-none absolute -right-6 -top-6 -z-10 hidden size-28 text-accent/[0.14] sm:block"
+            />
+          ) : null}
+          <h1 className="font-display text-4xl font-bold tracking-tight text-ink sm:text-[3.1rem]">
             Your pots
           </h1>
-          <p className="mt-1 text-ink-soft">Group funds for trips, events, and shared expenses.</p>
+          <p className="mt-1 max-w-md text-ink-soft">Group funds for trips, events, and shared expenses.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" onClick={refresh} disabled={pending} aria-label="Refresh pots">
-            <RefreshCw className={cn('size-4', pending && 'animate-spin')} />
-            {pending ? 'Refreshing…' : 'Refresh'}
-          </Button>
+          {hasPots ? (
+            <Button type="button" variant="outline" onClick={refresh} disabled={pending} aria-label="Refresh pots">
+              <RefreshCw className={cn('size-4', pending && 'animate-spin')} />
+              {pending ? 'Refreshing…' : 'Refresh'}
+            </Button>
+          ) : null}
           <ButtonLink href="/join" variant="outline">
             <Users className="size-4" />
             Join a pot
           </ButtonLink>
-          <ButtonLink href="/pots/new">
-            <Plus className="size-4" />
-            Create pot
-          </ButtonLink>
+          {hasPots ? (
+            <ButtonLink href="/pots/new">
+              <Plus className="size-4" />
+              Create pot
+            </ButtonLink>
+          ) : null}
         </div>
       </div>
 
@@ -114,8 +182,8 @@ export function YourPotsDashboard({ items }: { items: PotListItem[] }) {
         <EmptyPotsState />
       ) : (
         <>
-          <div className="space-y-3">
-            <div className="relative">
+          <div className="flex flex-col gap-3 rounded-[var(--radius-lg)] border border-line bg-surface p-4 sm:flex-row sm:items-center sm:gap-4">
+            <div className="relative sm:w-64 sm:flex-none">
               <Search
                 className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-soft"
                 aria-hidden
@@ -125,7 +193,7 @@ export function YourPotsDashboard({ items }: { items: PotListItem[] }) {
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search your pots…"
                 aria-label="Search your pots"
-                className="pl-10 pr-10"
+                className="border-line bg-paper pl-10 pr-10"
               />
               {query ? (
                 <button
@@ -139,53 +207,53 @@ export function YourPotsDashboard({ items }: { items: PotListItem[] }) {
               ) : null}
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div
-                role="tablist"
-                aria-label="Filter pots"
-                className="flex gap-1.5 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-              >
-                {FILTERS.map(({ key, label }) => {
-                  const selected = filter === key;
-                  const count = countFor(searched, key);
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      role="tab"
-                      aria-selected={selected}
-                      onClick={() => setFilter(key)}
-                      className={cn(
-                        'shrink-0 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30',
-                        selected
-                          ? 'border-accent bg-accent text-white'
-                          : 'border-line bg-surface text-ink-soft hover:border-accent/30 hover:text-ink',
-                      )}
-                    >
-                      {label}
-                      <span className={cn('ml-1.5 tabular-nums', selected ? 'text-white/80' : 'text-ink-soft')}>
-                        ({count})
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+            <div className="hidden h-8 w-px shrink-0 bg-line sm:block" aria-hidden />
 
-              <label className="flex shrink-0 items-center gap-2 text-sm text-ink-soft">
-                <span className="sr-only">Sort pots</span>
-                <select
-                  value={sort}
-                  onChange={(e) => setSort(e.target.value as SortKey)}
-                  className="h-10 rounded-[var(--radius-md)] border border-line bg-surface px-3 text-sm text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
-                >
-                  {SORTS.map((option) => (
-                    <option key={option.key} value={option.key}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+            <div
+              role="tablist"
+              aria-label="Filter pots"
+              className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] sm:pb-0 [&::-webkit-scrollbar]:hidden"
+            >
+              {FILTERS.map(({ key, label }) => {
+                const selected = filter === key;
+                const count = countFor(searched, key);
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    role="tab"
+                    aria-selected={selected}
+                    onClick={() => setFilter(key)}
+                    className={cn(
+                      'shrink-0 rounded-[10px] border px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30',
+                      selected
+                        ? 'border-accent bg-accent text-white'
+                        : 'border-line bg-paper text-ink-soft hover:border-accent/30 hover:text-ink',
+                    )}
+                  >
+                    {label}
+                    <span className={cn('ml-1.5 tabular-nums', selected ? 'text-white/80' : 'text-ink-soft')}>
+                      ({count})
+                    </span>
+                  </button>
+                );
+              })}
             </div>
+
+            <label className="flex shrink-0 items-center gap-2 text-sm text-ink-soft sm:ml-auto">
+              <span className="sr-only">Sort pots</span>
+              <select
+                value={sort}
+                onChange={(e) => setSort(e.target.value as SortKey)}
+                className="h-10 rounded-[var(--radius-md)] border border-line bg-paper px-3 text-sm text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
+              >
+                {SORTS.map((option) => (
+                  <option key={option.key} value={option.key}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
 
           {filtered.length === 0 ? (
@@ -217,7 +285,12 @@ export function YourPotsDashboard({ items }: { items: PotListItem[] }) {
             <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {filtered.map((item) => (
                 <li key={item.pot.id}>
-                  <PotCard item={item} />
+                  <PotCard
+                    item={item}
+                    userId={userId}
+                    pinned={pins.includes(item.pot.id)}
+                    onPinsChange={onPinsChange}
+                  />
                 </li>
               ))}
             </ul>

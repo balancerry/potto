@@ -10,7 +10,11 @@ import type {
   MemberStatus,
   PaymentMethod,
   PaymentSource,
+  PoolAccount,
+  PoolAccountType,
   Pot,
+  PotCategory,
+  ReceivedVia,
   PottoUser,
   Split,
   SplitMethod,
@@ -55,11 +59,14 @@ export interface TransactionRow {
   amount: number;
   date: string;
   note: string | null;
-  category: string | null;
+  category_id: string | null;
   paid_by: string | null;
   to_member: string | null;
   payment_method: string | null;
   payment_source: string | null;
+  pool_account_id: string | null;
+  to_pool_account_id: string | null;
+  received_via: string | null;
   split_method: string | null;
   participants: string[] | null;
   created_by: string;
@@ -90,7 +97,7 @@ export interface CommitmentRow {
   pot_id: string;
   title: string;
   vendor_name: string | null;
-  category: string | null;
+  category_id: string | null;
   description: string | null;
   total_amount: number;
   due_date: string | null;
@@ -107,6 +114,38 @@ export interface CommitmentPaymentRow {
   transaction_id: string;
   amount: number;
   created_at: string;
+}
+
+export interface PoolAccountRow {
+  id: string;
+  pot_id: string;
+  name: string;
+  type: string;
+  currency: string;
+  active: boolean;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PotCategoryRow {
+  id: string;
+  pot_id: string;
+  name: string;
+  icon: string;
+  color: string;
+  is_active: boolean;
+  is_default: boolean;
+  sort_order: number;
+}
+
+export interface PoolManagerRow {
+  id: string;
+  pot_id: string;
+  pot_member_id: string;
+  assigned_by: string | null;
+  active: boolean;
+  assigned_at: string;
 }
 
 export interface UserRow {
@@ -146,6 +185,8 @@ export function mapMember(row: MemberRow): Member {
  */
 export function mapPot(row: PotRow, members: Member[]): Pot {
   const creatorMember =
+    members.find((m) => m.userId === row.created_by && m.role === 'owner') ??
+    members.find((m) => m.role === 'owner') ??
     members.find((m) => m.userId === row.created_by && m.role === 'admin') ??
     members.find((m) => m.role === 'admin') ??
     members.find((m) => m.userId === row.created_by) ??
@@ -165,6 +206,18 @@ export function mapPot(row: PotRow, members: Member[]): Pot {
     status: row.status as Pot['status'],
     createdAt: row.created_at,
     members,
+  };
+}
+
+export function mapPoolAccount(row: PoolAccountRow): PoolAccount {
+  return {
+    id: row.id,
+    potId: row.pot_id,
+    name: row.name,
+    type: row.type as PoolAccountType,
+    currency: row.currency,
+    active: row.active,
+    isDefault: row.is_default,
   };
 }
 
@@ -188,16 +241,32 @@ export function mapTransaction(row: TransactionRow, splits: Split[] = []): Trans
   };
 
   if (row.note != null && row.note !== '') tx.note = row.note;
-  if (row.category != null && row.category !== '') tx.category = row.category;
+  if (row.category_id) tx.categoryId = row.category_id;
   if (row.paid_by) tx.paidBy = row.paid_by;
   if (row.to_member) tx.toMember = row.to_member;
   if (row.payment_method) tx.paymentMethod = row.payment_method as PaymentMethod;
   if (row.payment_source) tx.paymentSource = row.payment_source as PaymentSource;
+  if (row.pool_account_id) tx.poolAccountId = row.pool_account_id;
+  if (row.to_pool_account_id) tx.toPoolAccountId = row.to_pool_account_id;
+  if (row.received_via) tx.receivedVia = row.received_via as ReceivedVia;
   if (row.split_method) tx.splitMethod = row.split_method as SplitMethod;
   if (row.participants && row.participants.length > 0) tx.participants = row.participants;
   if (splits.length > 0) tx.splits = splits;
 
   return tx;
+}
+
+export function mapCategory(row: PotCategoryRow): PotCategory {
+  return {
+    id: row.id,
+    potId: row.pot_id,
+    name: row.name,
+    icon: row.icon,
+    color: row.color,
+    isActive: row.is_active,
+    isDefault: row.is_default,
+    sortOrder: row.sort_order,
+  };
 }
 
 export function mapJoinRequest(row: JoinRequestRow): JoinRequest {
@@ -220,7 +289,7 @@ export function mapCommitment(row: CommitmentRow): Commitment {
     potId: row.pot_id,
     title: row.title,
     vendorName: optString(row.vendor_name),
-    category: optString(row.category),
+    categoryId: optString(row.category_id),
     description: optString(row.description),
     totalAmount: Number(row.total_amount),
     dueDate: row.due_date ? dateSlice(row.due_date) : undefined,

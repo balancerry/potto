@@ -16,7 +16,7 @@ import { formatMoney, toPaise } from '@/utils/money';
 export type CommitmentLinkResult =
   | { mode: 'none' }
   | { mode: 'link'; commitmentId: string }
-  | { mode: 'create'; title: string; vendorName?: string; category?: string; totalAmount: number; dueDate?: string };
+  | { mode: 'create'; title: string; vendorName?: string; totalAmount: number; dueDate?: string };
 
 interface CommitmentLinkSectionProps {
   /** Candidates to link to — caller filters to this Pot's non-cancelled, not-yet-fully-paid commitments. */
@@ -26,7 +26,6 @@ interface CommitmentLinkSectionProps {
   /** The expense amount currently entered on the form, used to validate against each candidate's remaining. */
   amountPaise: number;
   defaultTitle?: string;
-  defaultCategory?: string;
   /** When set (e.g. arriving from a Commitment's "Add Payment" button), locks to Link mode with this commitment and hides the mode picker. */
   forcedCommitmentId?: string;
   onResultChange: (result: CommitmentLinkResult, valid: boolean, error?: string) => void;
@@ -38,7 +37,6 @@ export function CommitmentLinkSection({
   transactions,
   amountPaise,
   defaultTitle,
-  defaultCategory,
   forcedCommitmentId,
   onResultChange,
 }: CommitmentLinkSectionProps) {
@@ -62,7 +60,7 @@ export function CommitmentLinkSection({
     }
     if (mode === 'link') {
       if (!selectedCommitment) {
-        onResultChange({ mode: 'link', commitmentId: '' }, false, 'Select an Upcoming Payment to link');
+        onResultChange({ mode: 'link', commitmentId: '' }, false, 'Select an Planned payment to link');
         return;
       }
       const remaining = calculateCommitmentRemaining(selectedCommitment, payments, transactions);
@@ -94,7 +92,6 @@ export function CommitmentLinkSection({
         mode: 'create',
         title: title.trim() || vendorName.trim(),
         vendorName: vendorName.trim(),
-        category: defaultCategory,
         totalAmount: totalAmountPaise,
         dueDate: hasDueDate ? dueDate : undefined,
       },
@@ -108,7 +105,7 @@ export function CommitmentLinkSection({
 
   return (
     <View>
-      <Text style={[styles.label, { color: colors.inkSoft }]}>Related Upcoming Payment?</Text>
+      <Text style={[styles.label, { color: colors.inkSoft }]}>Related Planned payment?</Text>
 
       {forcedCommitment ? (
         <CommitmentPreviewCard commitment={forcedCommitment} payments={payments} transactions={transactions} />
@@ -123,7 +120,7 @@ export function CommitmentLinkSection({
           {mode === 'link' && (
             <View style={styles.pickList}>
               {linkable.length === 0 ? (
-                <Text style={[styles.empty, { color: colors.inkSoft }]}>No Upcoming Payments available to link in this Pot yet.</Text>
+                <Text style={[styles.empty, { color: colors.inkSoft }]}>No Planned payments available to link in this Pot yet.</Text>
               ) : (
                 linkable.map((c) => {
                   const paid = calculateCommitmentPaid(c.id, payments, transactions);
@@ -193,7 +190,7 @@ export function CommitmentLinkSection({
               )}
               {amountPaise > 0 && (
                 <Text style={[styles.hint, { color: colors.inkSoft }]}>
-                  This expense ({formatMoney(amountPaise)}) will count as the first payment toward this new Upcoming Payment.
+                  This expense ({formatMoney(amountPaise)}) will count as the first payment toward this new Planned payment.
                 </Text>
               )}
             </View>

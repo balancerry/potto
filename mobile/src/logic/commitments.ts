@@ -1,7 +1,7 @@
 import type { Commitment, CommitmentPayment, CommitmentStatus, Transaction } from '@/types/models';
 
 /**
- * Pure, DOM/UI-free logic for Commitments ("Upcoming Payments"). Mirrors the
+ * Pure, DOM/UI-free logic for Commitments ("Planned Payments"). Mirrors the
  * shape of accounting.ts: everything here is derived fresh from the
  * Commitment + CommitmentPayment + Transaction data every time, nothing is
  * cached.
@@ -79,7 +79,7 @@ export function deriveDueDateState(
   return days <= DUE_SOON_WINDOW_DAYS ? 'due_soon' : 'upcoming';
 }
 
-/** Sum of remaining amounts across every non-cancelled commitment in a Pot — the dashboard's "Upcoming Payments" total (spec section 16). Never included in Total Spent. */
+/** Sum of remaining amounts across every non-cancelled commitment in a Pot — the dashboard's "Planned Payments" total (spec section 16). Never included in Total Spent. */
 export function calculateTotalUpcomingRemaining(
   commitments: Commitment[],
   payments: CommitmentPayment[],

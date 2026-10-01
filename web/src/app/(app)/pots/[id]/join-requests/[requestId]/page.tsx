@@ -21,7 +21,7 @@ export default async function JoinRequestPage({
       <EmptyState
         title="Admins only"
         description="Only pot admins can review join requests."
-        action={<ButtonLink href={`/pots/${id}`}>Back to pot</ButtonLink>}
+        action={<ButtonLink href={`/pots/${id}/members`}>← People</ButtonLink>}
       />
     );
   }

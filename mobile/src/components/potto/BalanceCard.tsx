@@ -1,11 +1,10 @@
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { PottoFonts, Radius, usePottoColors } from '@/constants/potto-theme';
+import { Radius, usePottoColors } from '@/constants/potto-theme';
 import { formatMoney } from '@/utils/money';
 
 export function BalanceCard({ balance, onPress }: { balance: number; onPress: () => void }) {
   const colors = usePottoColors();
-  const displayFont = Platform.OS === 'web' ? undefined : PottoFonts.display;
   const settled = balance === 0;
 
   return (
@@ -18,7 +17,7 @@ export function BalanceCard({ balance, onPress }: { balance: number; onPress: ()
           <Text
             style={[
               styles.amt,
-              { color: settled ? colors.ink : balance > 0 ? colors.pos : colors.neg, fontFamily: displayFont },
+              { color: settled ? colors.ink : balance > 0 ? colors.pos : colors.neg },
             ]}>
             {settled ? formatMoney(0) : formatMoney(Math.abs(balance))}
           </Text>

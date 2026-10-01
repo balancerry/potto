@@ -17,7 +17,7 @@ export default async function InvitePage({ params }: { params: Promise<{ id: str
       <EmptyState
         title="Can't invite"
         description="You don't have permission to share invites for this pot."
-        action={<ButtonLink href={`/pots/${id}`}>Back to pot</ButtonLink>}
+        action={<ButtonLink href={`/pots/${id}/more`}>← More</ButtonLink>}
       />
     );
   }

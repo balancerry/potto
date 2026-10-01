@@ -29,6 +29,8 @@ const contributionEntrySchema = z.object({
 const addMoneySchema = z.object({
   date: dateStr,
   note: z.string().optional(),
+  receivedVia: z.enum(['online', 'cash']),
+  poolAccountId: z.string().uuid(),
   entries: z.array(contributionEntrySchema).min(1),
 });
 
@@ -42,8 +44,9 @@ const addExpenseSchema = z.object({
   amount: paise,
   paidBy: z.string().uuid(),
   paymentSource: z.enum(['pool', 'personal']),
+  poolAccountId: z.string().uuid().optional(),
   date: dateStr,
-  category: z.string().optional(),
+  categoryId: z.string().uuid().optional(),
   participants: z.array(z.string().uuid()).min(1),
   splitMethod: z.enum(['equal', 'custom', 'percentage']),
   splits: z.array(splitSchema).min(1),
@@ -55,6 +58,8 @@ const updateContributionSchema = z.object({
   amount: paise,
   date: dateStr,
   note: z.string().optional(),
+  receivedVia: z.enum(['online', 'cash']),
+  poolAccountId: z.string().uuid(),
 });
 
 const updateSettlementSchema = z.object({
@@ -74,6 +79,20 @@ const recordSettlementSchema = z.object({
   paymentMethod: z.enum(['cash', 'upi', 'bank_transfer', 'other']).optional(),
   note: z.string().optional(),
 });
+
+async function loadPoolManagerId(
+  supabase: Awaited<ReturnType<typeof requireUser>>['supabase'],
+  potId: string,
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('pot_pool_managers')
+    .select('pot_member_id')
+    .eq('pot_id', potId)
+    .eq('active', true)
+    .maybeSingle();
+  if (error) throw error;
+  return (data?.pot_member_id as string | undefined) ?? null;
+}
 
 async function loadTransaction(
   supabase: Awaited<ReturnType<typeof requireUser>>['supabase'],
@@ -119,7 +138,8 @@ export async function addMoney(
     if (!auth.user) return actionFail(auth.error);
 
     const me = assertActiveMember(await getCurrentMember(auth.supabase, potId, auth.user.id));
-    if (!canAddMoney(me)) return actionFail('You do not have permission to do that');
+    const managerId = await loadPoolManagerId(auth.supabase, potId);
+    if (!canAddMoney(me, managerId)) return actionFail('You do not have permission to do that');
 
     const rows = parsed.entries.map((entry) => ({
       pot_id: potId,
@@ -128,9 +148,11 @@ export async function addMoney(
       amount: entry.amount,
       date: parsed.date,
       paid_by: entry.memberId,
-      // RLS requires created_by = current member
       created_by: me.id,
       note: parsed.note ?? null,
+      received_via: parsed.receivedVia,
+      pool_account_id: parsed.poolAccountId,
+      payment_method: parsed.receivedVia === 'cash' ? 'cash' : 'bank_transfer',
     }));
 
     const { data, error } = await auth.supabase.from('transactions').insert(rows).select('id');
@@ -153,7 +175,11 @@ export async function addExpense(
     if (!auth.user) return actionFail(auth.error);
 
     const me = assertActiveMember(await getCurrentMember(auth.supabase, potId, auth.user.id));
-    if (!canAddExpense(me)) return actionFail('You do not have permission to do that');
+    const managerId = await loadPoolManagerId(auth.supabase, potId);
+    if (!canAddExpense(me, managerId)) return actionFail('You do not have permission to do that');
+    if (parsed.paymentSource === 'pool' && !parsed.poolAccountId) {
+      return actionFail('Choose which pool account paid');
+    }
 
     const type = parsed.paymentSource === 'pool' ? 'pool_expense' : 'member_expense';
 
@@ -167,7 +193,8 @@ export async function addExpense(
         date: parsed.date,
         paid_by: parsed.paidBy,
         payment_source: parsed.paymentSource,
-        category: parsed.category ?? null,
+        pool_account_id: parsed.paymentSource === 'pool' ? parsed.poolAccountId : null,
+        category_id: parsed.categoryId ?? null,
         participants: parsed.participants,
         split_method: parsed.splitMethod as SplitMethod,
         note: parsed.note ?? null,
@@ -198,9 +225,10 @@ export async function updateContribution(
     if (!auth.user) return actionFail(auth.error);
 
     const me = assertActiveMember(await getCurrentMember(auth.supabase, potId, auth.user.id));
+    const managerId = await loadPoolManagerId(auth.supabase, potId);
     const existing = await loadTransaction(auth.supabase, potId, txId);
     if (!existing || existing.type !== 'contribution') return actionFail('Contribution not found');
-    if (!canEditTransaction(me, existing)) return actionFail('You do not have permission to do that');
+    if (!canEditTransaction(me, existing, managerId)) return actionFail('You do not have permission to do that');
 
     const { error } = await auth.supabase
       .from('transactions')
@@ -209,6 +237,9 @@ export async function updateContribution(
         amount: parsed.amount,
         date: parsed.date,
         note: parsed.note ?? null,
+        received_via: parsed.receivedVia,
+        pool_account_id: parsed.poolAccountId,
+        payment_method: parsed.receivedVia === 'cash' ? 'cash' : 'bank_transfer',
       })
       .eq('id', txId)
       .eq('pot_id', potId);
@@ -237,7 +268,11 @@ export async function updateExpense(
     if (!existing || (existing.type !== 'pool_expense' && existing.type !== 'member_expense')) {
       return actionFail('Expense not found');
     }
-    if (!canEditTransaction(me, existing)) return actionFail('You do not have permission to do that');
+    const managerId = await loadPoolManagerId(auth.supabase, potId);
+    if (!canEditTransaction(me, existing, managerId)) return actionFail('You do not have permission to do that');
+    if (parsed.paymentSource === 'pool' && !parsed.poolAccountId) {
+      return actionFail('Choose which pool account paid');
+    }
 
     const type = parsed.paymentSource === 'pool' ? 'pool_expense' : 'member_expense';
 
@@ -250,7 +285,8 @@ export async function updateExpense(
         date: parsed.date,
         paid_by: parsed.paidBy,
         payment_source: parsed.paymentSource,
-        category: parsed.category ?? null,
+        pool_account_id: parsed.paymentSource === 'pool' ? parsed.poolAccountId : null,
+        category_id: parsed.categoryId ?? null,
         participants: parsed.participants,
         split_method: parsed.splitMethod,
         note: parsed.note ?? null,

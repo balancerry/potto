@@ -1,4 +1,4 @@
-export type MemberRole = 'admin' | 'member';
+export type MemberRole = 'owner' | 'admin' | 'member';
 
 /** Access tier for non-admin members. Admins always have full access regardless of this. */
 export type AccessLevel = 'member' | 'view_only';
@@ -38,7 +38,46 @@ export interface JoinRequest {
   createdAt: string;
 }
 
-export type TransactionType = 'contribution' | 'pool_expense' | 'member_expense' | 'settlement';
+export type TransactionType =
+  | 'contribution'
+  | 'pool_expense'
+  | 'member_expense'
+  | 'settlement'
+  | 'pool_transfer';
+
+/** How a contribution was received. Online defaults to Pool Bank; cash defaults to Pool Cash. */
+export type ReceivedVia = 'online' | 'cash';
+
+export type PoolAccountType = 'bank' | 'cash';
+
+export interface PoolAccount {
+  id: string;
+  potId: string;
+  name: string;
+  type: PoolAccountType;
+  currency: string;
+  active: boolean;
+  isDefault: boolean;
+}
+
+/**
+ * A Pot-specific expense category. Expenses and Planned Payments reference one
+ * by `id`, so renaming it re-labels history. Archived categories (`isActive:
+ * false`) stay readable on existing records but cannot be chosen for new ones.
+ * See src/logic/categories.ts for the rules.
+ */
+export interface PotCategory {
+  id: string;
+  potId: string;
+  name: string;
+  /** Lucide icon id from CATEGORY_ICON_IDS. */
+  icon: string;
+  /** Palette key from CATEGORY_COLOR_IDS. */
+  color: string;
+  isActive: boolean;
+  isDefault: boolean;
+  sortOrder: number;
+}
 
 export type SplitMethod = 'equal' | 'custom' | 'percentage';
 
@@ -60,7 +99,8 @@ export interface Transaction {
   date: string; // ISO date
   createdAt: string; // ISO datetime
   note?: string;
-  category?: string;
+  /** Expenses only. References a PotCategory of the same pot; undefined renders as "Uncategorized". */
+  categoryId?: string;
 
   // contribution / member_expense: who paid/contributed
   paidBy?: string; // memberId
@@ -76,6 +116,13 @@ export interface Transaction {
   splits?: Split[];
 
   createdBy: string; // memberId
+
+  /** Contribution destination, pool-expense source, or transfer source. */
+  poolAccountId?: string;
+  /** Transfer destination. */
+  toPoolAccountId?: string;
+  /** Contribution only: online or cash. */
+  receivedVia?: ReceivedVia;
 }
 
 export interface Pot {
@@ -108,7 +155,7 @@ export interface Pot {
 export type CommitmentStatus = 'planned' | 'partially_paid' | 'fully_paid' | 'cancelled';
 
 /**
- * A planned/agreed obligation (an "Upcoming Payment" in the UI) — not itself
+ * A planned/agreed obligation (an "Planned Payment" in the UI) — not itself
  * an expense. `totalAmount` never affects Pool balance, Total Spent, member
  * balances, contributions, or settlements. Only actual linked Transactions
  * (via CommitmentPayment) do that. See src/logic/commitments.ts.
@@ -118,7 +165,8 @@ export interface Commitment {
   potId: string;
   title: string;
   vendorName?: string;
-  category?: string;
+  /** Optional PotCategory of the same pot for this planned spend. */
+  categoryId?: string;
   description?: string;
   totalAmount: number; // paise
   dueDate?: string; // ISO date, optional
