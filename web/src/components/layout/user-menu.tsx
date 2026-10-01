@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
-import { LogOut, ChevronDown } from 'lucide-react';
+import Link from 'next/link';
+import { CircleHelp, LogOut, ChevronDown } from 'lucide-react';
 import { signOut } from '@/lib/actions/auth';
 import { initials } from '@/lib/core/money';
 import { cn } from '@/lib/utils';
@@ -71,6 +72,15 @@ export function UserMenu({
             <p className="truncate text-sm font-medium text-ink">{displayName}</p>
             {userEmail ? <p className="truncate text-xs text-ink-soft">{userEmail}</p> : null}
           </div>
+          <Link
+            href="/help"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+            className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-ink hover:bg-surface-sunk focus-visible:bg-surface-sunk focus-visible:outline-none"
+          >
+            <CircleHelp className="size-4 text-ink-soft" />
+            Help & FAQ
+          </Link>
           <form action={signOut}>
             <button
               type="submit"

@@ -17,7 +17,8 @@ export function MemberRow({
   onPress?: () => void;
 }) {
   const colors = usePottoColors();
-  const isAdmin = member.role === 'admin';
+  const isOwner = member.role === 'owner';
+  const isAdmin = member.role === 'admin' || isOwner;
   const isViewOnly = !isAdmin && member.accessLevel === 'view_only';
   const isInactive = member.status === 'inactive';
 
@@ -27,7 +28,12 @@ export function MemberRow({
       <View style={styles.body}>
         <View style={styles.nameRow}>
           <Text style={[styles.name, { color: colors.ink }]}>{member.name}</Text>
-          {isAdmin && (
+          {isOwner && (
+            <View style={[styles.badge, { backgroundColor: colors.accentSoft }]}>
+              <Text style={{ color: colors.accent, fontSize: 10, fontWeight: '700' }}>OWNER</Text>
+            </View>
+          )}
+          {member.role === 'admin' && (
             <View style={[styles.badge, { backgroundColor: colors.goldSoft }]}>
               <Text style={{ color: colors.gold, fontSize: 10, fontWeight: '700' }}>ADMIN</Text>
             </View>
@@ -43,11 +49,16 @@ export function MemberRow({
             </View>
           )}
         </View>
-        <Text style={[styles.sub, { color: colors.inkSoft }]}>Contributed {formatMoney(contributed)}</Text>
+        <Text style={[styles.sub, { color: colors.inkSoft }]}>
+          Contributed {formatMoney(contributed)}
+          {!member.userId && !isInactive ? ' · Unlinked' : ''}
+        </Text>
       </View>
-      <Text style={[styles.balance, { color: balance === 0 ? colors.inkSoft : balance > 0 ? colors.pos : colors.neg }]}>
-        {balance === 0 ? formatMoney(0) : formatMoney(balance, { showSign: true })}
-      </Text>
+      {balance !== 0 ? (
+        <Text style={[styles.balance, { color: balance > 0 ? colors.pos : colors.neg }]}>
+          {balance < 0 ? `Needs to add\n${formatMoney(Math.abs(balance))}` : `Should receive\n${formatMoney(balance)}`}
+        </Text>
+      ) : null}
     </Pressable>
   );
 }
@@ -59,5 +70,5 @@ const styles = StyleSheet.create({
   name: { fontSize: 15, fontWeight: '600' },
   badge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 },
   sub: { fontSize: 12.5, marginTop: 1 },
-  balance: { fontSize: 15.5, fontWeight: '600', flexShrink: 0 },
+  balance: { fontSize: 12.5, fontWeight: '600', flexShrink: 0, textAlign: 'right', maxWidth: 120 },
 });

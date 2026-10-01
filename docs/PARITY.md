@@ -1,36 +1,48 @@
 # Mobile ↔ Web feature parity
 
-| Mobile Feature | Web Feature | Implemented | Logic matched | DB | Notes |
-|----------------|-------------|-------------|---------------|-----|-------|
-| Home pot list | `/` | ✓ | ✓ | ✓ | Delete pot available to admin via settings/delete action |
-| Create pot | `/pots/new` | ✓ | ✓ | ✓ | RPC `create_pot` |
-| Join code / QR | `/join` | ✓ | ✓ | ✓ | Web: type code; camera QR optional later |
-| Invite link join | `/invite/[code]` | ✓ | ✓ | ✓ | Path `/invite` (mobile deep link `/join/[code]`) |
-| Pot dashboard | `/pots/[id]` | ✓ | ✓ | ✓ | |
-| Settings / archive | `/pots/[id]/settings` | ✓ | ✓ | ✓ | Admin |
-| Summary / export | `/pots/[id]/summary` | ✓ | ✓ | ✓ | Print HTML (no expo-print) |
-| Invite & join codes | `/pots/[id]/invite` | ✓ | ✓ | ✓ | QR via `qrcode.react` |
-| Members | `/pots/[id]/members` | ✓ | ✓ | ✓ | Soft-remove |
-| Join request review | `/pots/[id]/join-requests/[id]` | ✓ | ✓ | ✓ | RPC approve/reject |
-| Add / edit money | `/pots/[id]/add-money` | ✓ | ✓ | ✓ | |
-| Add / edit expense | `/pots/[id]/add-expense` | ✓ | ✓ | ✓ | Splits + commitment link |
-| Activity | `/pots/[id]/transactions` | ✓ | ✓ | ✓ | Type filters |
-| Member contributions | `/pots/[id]/contributions/[memberId]` | ✓ | ✓ | ✓ | |
-| Transaction detail | `/pots/[id]/transactions/[txId]` | ✓ | ✓ | ✓ | |
-| Settle up | `/pots/[id]/settle` | ✓ | ✓ | ✓ | Two-stage pool funding |
-| Edit settlement | `/pots/[id]/edit-settlement` | ✓ | ✓ | ✓ | |
-| Balance | `/pots/[id]/balance` | ✓ | ✓ | ✓ | |
-| Commitments list | `/pots/[id]/commitments` | ✓ | ✓ | ✓ | |
-| Add / edit commitment | `/commitments/new` + detail | ✓ | ✓ | ✓ | |
-| Commitment detail / pay / cancel | `/commitments/[id]` | ✓ | ✓ | ✓ | |
-| Simulated auth | Magic link | ✓ | n/a | ✓ | **Web improvement** |
-| Seed demo data | — | n/a | — | empty DB | Create pots after sign-in |
-| QR camera scan | — | ✗ | — | — | Manual code entry; paste QR payload supported if added later |
-| PDF share native | Print / browser | Partial | ✓ summary | ✓ | Web uses print |
+Both apps are Supabase-backed and call the same RPCs and tables. Domain logic is duplicated (see [SHARED_CORE_PROPOSAL.md](SHARED_CORE_PROPOSAL.md)).
 
-## Unavoidable differences
+Last reviewed: 2026-10-01.
 
-1. **Authentication** — mobile MVP had a hardcoded user; web uses Supabase magic link.
-2. **Persistence** — mobile in-memory; web is Supabase-backed.
-3. **PDF** — mobile uses expo-print/share; web uses printable HTML summary.
-4. **Camera QR** — not required for parity of join *capability*; join code entry works.
+| Feature | Mobile | Web | Notes |
+|---------|--------|-----|-------|
+| Sign in / sign up (password) | `(auth)/login`, `signup` | `/login` | Both check `email_registered` before sign-up |
+| Magic link | AuthContext | `/login` | |
+| Forgot / reset / set password | `(auth)/*` | `/auth/reset-password`, `/auth/set-password` | |
+| Complete signup | `(auth)/complete-signup` | `/auth/complete-signup` | |
+| Home pot list | `/` | `/` | Pins and recently visited synced via `user_pot_prefs` + `record_pot_visit` |
+| Create pot | `/create-pot` | `/pots/new` | RPC `create_pot`; same field limits (80 / 240 / 60) |
+| Join by code | `/join-pot` | `/join` | Mobile can scan a QR; web is manual entry |
+| Join by invite link | `/join/[code]` | `/invite/[code]` | |
+| Join request review | `pot/[id]/join-requests/[requestId]` | `/pots/[id]/join-requests/[requestId]` | `approve_join_request` / `reject_join_request` |
+| Pot dashboard | `pot/[id]` | `/pots/[id]` | Same `next-up` priority |
+| Add money | `add-money` | `add-money` | |
+| Add / edit expense | `add-expense` | `add-expense` | Splits, commitment link, create-commitment-with-payment |
+| Activity | `transactions` | `transactions` | |
+| Transaction detail | `transaction/[txId]` | `transactions/[txId]` | |
+| Member contributions | `contributions/[memberId]` | `contributions/[memberId]` | |
+| Settle up | `settle` | `settle` | Two-stage pool funding |
+| Edit settlement | `edit-settlement` | `edit-settlement` | |
+| Balance | `balance` | `balance` | |
+| Pool management | `pool`, `transfer`, `reconcile` | `pool`, `pool/transfer`, `pool/reconcile` | `create_pool_transfer`, `assign_pool_manager` |
+| Categories | `categories` | `settings/categories` | Create / edit / reorder / activate RPCs |
+| Commitments | `commitments`, `add-commitment`, `commitment/[id]` | `commitments`, `commitments/new`, `commitments/[id]` | |
+| Members | `members` | `members` | Soft-remove, roles, access level |
+| Invite & join codes | `invite` | `invite` | QR rendered on both |
+| Settings / archive | `settings` | `settings` | |
+| Delete pot | Home screen | Settings (`canDelete`) | Same RPC `delete_pot`, different entry point |
+| Summary / export | `summary` | `summary` | expo-print vs browser print; same HTML generator |
+| Notifications | `/notifications` + realtime | Bell + realtime | |
+
+## Intentional differences
+
+1. **QR scanning** — mobile only (`QRScanner`). Web uses manual code entry.
+2. **Summary export** — mobile shares a PDF via expo-print; web opens printable HTML.
+3. **Help / FAQ** — web only (`/help`).
+4. **Realtime scope** — web subscribes per pot (`pot-realtime`); mobile subscribes to the whole workspace.
+5. **Delete pot entry point** — see table.
+
+## Known gaps
+
+- Web has no automated tests; mobile has 11 test files covering the shared logic.
+- Logic files are copied, not shared; they can drift. A byte-for-byte check shows them identical apart from import paths as of the review date.

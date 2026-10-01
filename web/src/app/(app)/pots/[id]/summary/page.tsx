@@ -15,6 +15,7 @@ export default async function SummaryPage({ params }: { params: Promise<{ id: st
     bundle.transactions,
     bundle.commitments,
     bundle.commitmentPayments,
+    bundle.categories,
   );
 
   return <SummaryView vm={vm} />;

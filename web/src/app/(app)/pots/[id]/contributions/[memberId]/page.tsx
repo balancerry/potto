@@ -5,6 +5,7 @@ import { getPotBundle } from '@/lib/queries/pots';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ButtonLink } from '@/components/ui/button';
+import { withReturn } from '@/lib/navigation/pot-trail';
 
 export const metadata = { title: 'Contributions' };
 
@@ -30,7 +31,7 @@ export default async function MemberContributionsPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="font-display text-2xl font-semibold text-ink">{member.name}&apos;s contributions</h2>
+          <h2 className="font-sans text-2xl font-semibold text-ink">{member.name}&apos;s contributions</h2>
           <p className="mt-1 text-sm text-ink-soft">Total {formatMoney(total)}</p>
         </div>
         <ButtonLink href={`/pots/${id}/balance?memberId=${memberId}`} variant="outline" size="sm">
@@ -44,13 +45,13 @@ export default async function MemberContributionsPage({
         <ul className="space-y-2">
           {contributions.map((tx) => (
             <li key={tx.id}>
-              <Link href={`/pots/${id}/transactions/${tx.id}`}>
+              <Link href={withReturn(`/pots/${id}/transactions/${tx.id}`, `/pots/${id}/contributions/${memberId}`)}>
                 <Card className="flex items-center justify-between p-4 hover:bg-surface-sunk/40">
                   <div>
                     <p className="font-medium text-ink">{formatDate(tx.date)}</p>
                     {tx.note ? <p className="text-xs text-ink-soft">{tx.note}</p> : null}
                   </div>
-                  <p className="font-medium">{formatMoney(tx.amount)}</p>
+                  <p className="font-money font-semibold">{formatMoney(tx.amount)}</p>
                 </Card>
               </Link>
             </li>

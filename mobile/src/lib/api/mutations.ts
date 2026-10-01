@@ -4,6 +4,8 @@ export async function addMoneyRemote(input: {
   potId: string;
   date: string;
   note?: string;
+  receivedVia: 'online' | 'cash';
+  poolAccountId: string;
   entries: { memberId: string; amount: number }[];
   createdByMemberId: string;
 }): Promise<void> {
@@ -16,6 +18,9 @@ export async function addMoneyRemote(input: {
     note: input.note ?? null,
     paid_by: entry.memberId,
     created_by: input.createdByMemberId,
+    received_via: input.receivedVia,
+    pool_account_id: input.poolAccountId,
+    payment_method: input.receivedVia === 'cash' ? 'cash' : 'bank_transfer',
   }));
   const { error } = await supabase.from('transactions').insert(rows);
   if (error) throw error;
@@ -27,8 +32,9 @@ export async function addExpenseRemote(input: {
   amount: number;
   paidBy: string;
   paymentSource: 'pool' | 'personal';
+  poolAccountId?: string;
   date: string;
-  category?: string;
+  categoryId?: string;
   note?: string;
   participants: string[];
   splitMethod: string;
@@ -45,9 +51,10 @@ export async function addExpenseRemote(input: {
       amount: input.amount,
       date: input.date,
       note: input.note ?? null,
-      category: input.category ?? null,
+      category_id: input.categoryId ?? null,
       paid_by: input.paidBy,
       payment_source: input.paymentSource,
+      pool_account_id: input.paymentSource === 'pool' ? input.poolAccountId ?? null : null,
       split_method: input.splitMethod,
       participants: input.participants,
       created_by: input.createdByMemberId,
@@ -208,7 +215,14 @@ async function replaceSplits(
 export async function updateContributionRemote(
   potId: string,
   txId: string,
-  updates: { memberId: string; amount: number; date: string; note?: string },
+  updates: {
+    memberId: string;
+    amount: number;
+    date: string;
+    note?: string;
+    receivedVia: 'online' | 'cash';
+    poolAccountId: string;
+  },
 ): Promise<void> {
   const { error } = await supabase
     .from('transactions')
@@ -217,6 +231,9 @@ export async function updateContributionRemote(
       amount: updates.amount,
       date: updates.date,
       note: updates.note ?? null,
+      received_via: updates.receivedVia,
+      pool_account_id: updates.poolAccountId,
+      payment_method: updates.receivedVia === 'cash' ? 'cash' : 'bank_transfer',
     })
     .eq('id', txId)
     .eq('pot_id', potId)
@@ -232,8 +249,9 @@ export async function updateExpenseRemote(
     amount: number;
     paidBy: string;
     paymentSource: 'pool' | 'personal';
+    poolAccountId?: string;
     date: string;
-    category?: string;
+    categoryId?: string;
     note?: string;
     participants: string[];
     splitMethod: string;
@@ -250,7 +268,8 @@ export async function updateExpenseRemote(
       date: updates.date,
       paid_by: updates.paidBy,
       payment_source: updates.paymentSource,
-      category: updates.category ?? null,
+      pool_account_id: updates.paymentSource === 'pool' ? updates.poolAccountId ?? null : null,
+      category_id: updates.categoryId ?? null,
       participants: updates.participants,
       split_method: updates.splitMethod,
       note: updates.note ?? null,
@@ -295,7 +314,7 @@ export async function createCommitmentRemote(input: {
   potId: string;
   title: string;
   vendorName?: string;
-  category?: string;
+  categoryId?: string;
   description?: string;
   totalAmount: number;
   dueDate?: string;
@@ -304,14 +323,14 @@ export async function createCommitmentRemote(input: {
     p_pot_id: input.potId,
     p_title: input.title,
     p_vendor_name: input.vendorName ?? null,
-    p_category: input.category ?? null,
+    p_category_id: input.categoryId ?? null,
     p_description: input.description ?? null,
     p_total_amount: input.totalAmount,
     p_due_date: input.dueDate ?? null,
   });
   if (error) throw new Error(error.message);
   const row = data as { id?: string } | null;
-  if (!row?.id) throw new Error('Failed to create upcoming payment');
+  if (!row?.id) throw new Error('Failed to create planned payment');
   return row.id;
 }
 
@@ -320,7 +339,7 @@ export async function updateCommitmentRemote(
   input: {
     title: string;
     vendorName?: string;
-    category?: string;
+    categoryId?: string;
     description?: string;
     totalAmount: number;
     dueDate?: string;
@@ -330,7 +349,7 @@ export async function updateCommitmentRemote(
     p_commitment_id: commitmentId,
     p_title: input.title,
     p_vendor_name: input.vendorName ?? null,
-    p_category: input.category ?? null,
+    p_category_id: input.categoryId ?? null,
     p_description: input.description ?? null,
     p_total_amount: input.totalAmount,
     p_due_date: input.dueDate ?? null,
@@ -345,6 +364,33 @@ export async function cancelCommitmentRemote(commitmentId: string): Promise<void
   if (error) throw new Error(error.message);
 }
 
+export async function transferPoolMoneyRemote(input: {
+  potId: string;
+  fromAccountId: string;
+  toAccountId: string;
+  amount: number;
+  date: string;
+  note?: string;
+}): Promise<void> {
+  const { error } = await supabase.rpc('create_pool_transfer', {
+    p_pot_id: input.potId,
+    p_from_account_id: input.fromAccountId,
+    p_to_account_id: input.toAccountId,
+    p_amount: input.amount,
+    p_date: input.date,
+    p_note: input.note ?? null,
+  });
+  if (error) throw error;
+}
+
+export async function assignPoolManagerRemote(potId: string, memberId: string): Promise<void> {
+  const { error } = await supabase.rpc('assign_pool_manager', {
+    p_pot_id: potId,
+    p_member_id: memberId,
+  });
+  if (error) throw error;
+}
+
 export async function addCommitmentPaymentRemote(input: {
   potId: string;
   commitmentId: string;
@@ -352,8 +398,9 @@ export async function addCommitmentPaymentRemote(input: {
   amount: number;
   paidBy: string;
   paymentSource: 'pool' | 'personal';
+  poolAccountId?: string;
   date: string;
-  category?: string;
+  categoryId?: string;
   note?: string;
   participants: string[];
   splitMethod: string;
@@ -370,9 +417,10 @@ export async function addCommitmentPaymentRemote(input: {
       amount: input.amount,
       date: input.date,
       note: input.note ?? null,
-      category: input.category ?? null,
+      category_id: input.categoryId ?? null,
       paid_by: input.paidBy,
       payment_source: input.paymentSource,
+      pool_account_id: input.paymentSource === 'pool' ? input.poolAccountId ?? null : null,
       split_method: input.splitMethod,
       participants: input.participants,
       created_by: input.createdByMemberId,
@@ -445,4 +493,65 @@ export async function listJoinCodesRemote(): Promise<string[]> {
   const { data, error } = await supabase.from('pots').select('join_code');
   if (error) throw error;
   return (data ?? []).map((r) => r.join_code as string);
+}
+
+// ---------------------------------------------------------------------------
+// Pot categories. Authorization and integrity live in the database RPCs; the
+// store checks permissions first only to fail fast with a friendlier message.
+// ---------------------------------------------------------------------------
+
+type CategoryRow = {
+  id: string;
+  pot_id: string;
+  name: string;
+  icon: string;
+  color: string;
+  is_active: boolean;
+  is_default: boolean;
+  sort_order: number;
+};
+
+export async function createCategoryRemote(input: {
+  potId: string;
+  name: string;
+  icon: string;
+  color: string;
+}): Promise<string> {
+  const { data, error } = await supabase.rpc('create_pot_category', {
+    p_pot_id: input.potId,
+    p_name: input.name,
+    p_icon: input.icon,
+    p_color: input.color,
+  });
+  if (error) throw new Error(error.message);
+  return (data as CategoryRow).id;
+}
+
+export async function updateCategoryRemote(
+  categoryId: string,
+  input: { name: string; icon: string; color: string },
+): Promise<void> {
+  const { error } = await supabase.rpc('update_pot_category', {
+    p_category_id: categoryId,
+    p_name: input.name,
+    p_icon: input.icon,
+    p_color: input.color,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function setCategoryActiveRemote(categoryId: string, active: boolean): Promise<void> {
+  const { error } = await supabase.rpc('set_pot_category_active', {
+    p_category_id: categoryId,
+    p_active: active,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function reorderCategoriesRemote(potId: string, categoryIds: string[]): Promise<void> {
+  const { error } = await supabase.rpc('reorder_pot_categories', {
+    p_pot_id: potId,
+    p_category_ids: categoryIds,
+  });
+  if (error) throw new Error(error.message);
 }

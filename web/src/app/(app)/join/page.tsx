@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { JoinCodeForm } from '@/components/pot/join-code-form';
 
 export const metadata = { title: 'Join a pot' };
@@ -5,6 +6,13 @@ export const metadata = { title: 'Join a pot' };
 export default function JoinPage() {
   return (
     <div className="space-y-6">
+      <Link
+        href="/"
+        aria-label="Back to your pots"
+        className="inline-flex min-h-11 items-center text-sm font-medium text-ink-soft hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+      >
+        ← Your pots
+      </Link>
       <div className="text-center sm:text-left">
         <h1 className="font-display text-3xl font-semibold text-ink">Join a pot</h1>
         <p className="mt-1 text-ink-soft">Enter the join code shared by your group.</p>

@@ -17,7 +17,7 @@ export function AppShell({
     <div className="min-h-screen bg-paper">
       <header className="sticky top-0 z-40 border-b border-line/80 bg-paper/90 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-          <Link href="/" className="flex items-center gap-2.5 font-display text-2xl font-semibold text-accent">
+          <Link href="/" aria-label="Potto, go to your pots" className="flex items-center gap-2.5 font-display text-2xl font-semibold text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
             <Image src={pottoIcon} alt="" width={32} height={32} priority />
             Potto
           </Link>

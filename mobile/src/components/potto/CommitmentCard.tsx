@@ -1,37 +1,26 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { CategoryIcon } from '@/components/categories/CategoryIcon';
 import { Radius, usePottoColors } from '@/constants/potto-theme';
+import { resolveCategory } from '@/logic/categories';
 import type { DueDateState } from '@/logic/commitments';
 import { calculateCommitmentPaid, calculateCommitmentRemaining, deriveCommitmentStatus, deriveDueDateState } from '@/logic/commitments';
-import type { Commitment, CommitmentPayment, Transaction } from '@/types/models';
+import type { Commitment, CommitmentPayment, PotCategory, Transaction } from '@/types/models';
 import { formatDate, formatMoney } from '@/utils/money';
 
-const CATEGORY_ICON: Record<string, string> = {
-  Stay: '🏨',
-  Accommodation: '🏨',
-  Food: '🍽️',
-  Transport: '🚐',
-  Activities: '🎟️',
-  Tickets: '🎟️',
-  Event: '🎉',
-  Venue: '🏛️',
-  Photography: '📷',
-  Shopping: '🛍️',
-  Fuel: '⛽',
-  Groceries: '🛒',
-  Drinks: '🥤',
-};
-
-export function commitmentIcon(category?: string): string {
-  return (category && CATEGORY_ICON[category]) || '📌';
+/** Category glyph for an Planned Payment; the pin stays for ones without a category. */
+export function CommitmentIcon({ categoryId, categories, size = 36 }: { categoryId?: string; categories: PotCategory[]; size?: number }) {
+  const category = resolveCategory(categoryId, categories);
+  if (category.uncategorized) return <Text style={{ fontSize: size * 0.6 }}>{'📌'}</Text>;
+  return <CategoryIcon icon={category.icon} color={category.color} size={size} />;
 }
 
 export const DUE_DATE_LABEL: Record<DueDateState, string> = {
-  upcoming: 'Upcoming',
-  due_soon: 'Due Soon',
-  due_today: 'Due Today',
+  upcoming: 'Planned',
+  due_soon: 'Due soon',
+  due_today: 'Due today',
   overdue: 'Overdue',
-  paid: 'Fully Paid',
+  paid: 'Paid',
   cancelled: 'Cancelled',
   no_due_date: 'No due date',
 };
@@ -54,11 +43,13 @@ export function CommitmentCard({
   commitment,
   payments,
   transactions,
+  categories,
   onPress,
 }: {
   commitment: Commitment;
   payments: CommitmentPayment[];
   transactions: Transaction[];
+  categories: PotCategory[];
   onPress: () => void;
 }) {
   const colors = usePottoColors();
@@ -72,7 +63,7 @@ export function CommitmentCard({
   return (
     <Pressable onPress={onPress} style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.line }]}>
       <View style={styles.headRow}>
-        <Text style={styles.icon}>{commitmentIcon(commitment.category)}</Text>
+        <CommitmentIcon categoryId={commitment.categoryId} categories={categories} />
         <View style={styles.flex1}>
           <Text style={[styles.title, { color: colors.ink }]} numberOfLines={1}>
             {commitment.vendorName || commitment.title}

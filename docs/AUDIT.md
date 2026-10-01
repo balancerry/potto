@@ -5,7 +5,7 @@
 
 ## Executive summary
 
-Potto (Trip Wallet) is a shared-money ledger for group trips/events. The mobile app is a fully featured **in-memory MVP**: simulated auth (hardcoded user "Raj"), seed data, no persistence, no live Supabase client. Business logic is pure TypeScript under `mobile/src/logic/`. Reference SQL migrations exist under `backend/supabase/migrations/` but were **not connected** to any project until the web build.
+Potto (Trip Wallet) is a shared-money ledger for group trips/events. The mobile app is Supabase-backed with real auth (password, magic link, reset) and realtime notifications. It began as an in-memory MVP with simulated auth; that is no longer the case. Business logic is pure TypeScript under `mobile/src/logic/` and is mirrored in `web/src/lib/core/logic/`. See [PARITY.md](PARITY.md).
 
 ## Stack (mobile)
 
@@ -13,8 +13,8 @@ Potto (Trip Wallet) is a shared-money ledger for group trips/events. The mobile 
 |-------|--------|
 | Framework | Expo ~57, Expo Router, React 19, RN 0.86 |
 | State | React Context (`PottoStore`) + `useState` |
-| Auth | Simulated `PottoUser` (no login) |
-| Persistence | None (seed on boot) |
+| Auth | Supabase Auth |
+| Persistence | Supabase (Postgres + RLS) |
 | Money | Integer **paise** (INR) |
 | Deep links | Scheme `potto`; invite URL `https://potto.app/invite/{code}`; in-app `/join/[code]`; QR `POTTO_JOIN:1:{joinCode}` |
 
@@ -28,7 +28,7 @@ Potto (Trip Wallet) is a shared-money ledger for group trips/events. The mobile 
 6. **Balances** — derived ledger explanations
 7. **Invites** — invite link + separate join code/QR
 8. **Join requests** — request → admin approve (link existing / create new) / reject
-9. **Commitments** ("Upcoming Payments") — planned obligations + linked expense payments
+9. **Commitments** ("Planned Payments") — planned obligations + linked expense payments
 10. **Summary/PDF** — export pot report (native print/share)
 
 ## Roles & permissions

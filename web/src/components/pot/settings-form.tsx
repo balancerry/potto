@@ -7,12 +7,13 @@ import { archivePot, deletePot, updatePotDetails } from '@/lib/actions/pots';
 import { toPaise, toRupees } from '@/lib/core/money';
 import type { Pot } from '@/lib/core/models';
 import { Button } from '@/components/ui/button';
+import { CancelLink, useWarnUnsaved } from '@/components/navigation/unsaved-changes';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardDescription, CardTitle } from '@/components/ui/card';
 
-export function SettingsForm({ pot }: { pot: Pot }) {
+export function SettingsForm({ pot, canDelete = false }: { pot: Pot; canDelete?: boolean }) {
   const router = useRouter();
   const [name, setName] = useState(pot.name);
   const [description, setDescription] = useState(pot.description ?? '');
@@ -24,6 +25,10 @@ export function SettingsForm({ pot }: { pot: Pot }) {
   const [saving, setSaving] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const initialExpected =
+    pot.expectedContributionPerMember != null ? String(toRupees(pot.expectedContributionPerMember)) : '';
+  const dirty = name !== pot.name || description !== (pot.description ?? '') || expected !== initialExpected;
+  useWarnUnsaved(dirty && !saving);
 
   async function onSave(e: React.FormEvent) {
     e.preventDefault();
@@ -106,20 +111,31 @@ export function SettingsForm({ pot }: { pot: Pot }) {
           />
         </div>
         <div>
-          <Label htmlFor="expected">Expected contribution per member (₹)</Label>
+          <Label htmlFor="expected">Expected contribution per member</Label>
           <Input
             id="expected"
             inputMode="decimal"
             value={expected}
             onChange={(e) => setExpected(e.target.value)}
-            placeholder="Optional"
+            placeholder="Optional, in ₹"
+            aria-describedby="expected-help"
           />
+          <p id="expected-help" className="mt-1 text-xs text-ink-soft">
+            Optional target for the group. It does not require every member to contribute this amount.
+          </p>
         </div>
-        <Button type="submit" disabled={saving}>
-          {saving ? 'Saving…' : 'Save changes'}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button type="submit" disabled={saving}>
+            {saving ? 'Saving…' : 'Save changes'}
+          </Button>
+          <CancelLink href={`/pots/${pot.id}/more`} dirty={dirty}>
+            Cancel
+          </CancelLink>
+        </div>
       </form>
 
+      <section className="space-y-3 border-t border-line pt-6">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-neg">Danger zone</h3>
       {pot.status === 'active' ? (
         <Card className="border-neg/20">
           <CardTitle className="text-base text-neg">Archive pot</CardTitle>
@@ -137,15 +153,19 @@ export function SettingsForm({ pot }: { pot: Pot }) {
         </Card>
       )}
 
-      <Card className="border-neg/30">
-        <CardTitle className="text-base text-neg">Delete pot</CardTitle>
-        <CardDescription>
-          Permanently removes the pot, members, transactions, and upcoming payments.
-        </CardDescription>
-        <Button variant="outline" className="mt-4 border-neg text-neg" onClick={onDelete} disabled={deleting}>
-          {deleting ? 'Deleting…' : 'Delete permanently'}
-        </Button>
-      </Card>
+      {canDelete ? (
+        <Card className="border-neg/30">
+          <CardTitle className="text-base text-neg">Delete pot</CardTitle>
+          <CardDescription>
+            Permanently removes the pot, members, transactions, and planned payments. Only the pot
+            owner can do this.
+          </CardDescription>
+          <Button variant="outline" className="mt-4 border-neg text-neg" onClick={onDelete} disabled={deleting}>
+            {deleting ? 'Deleting…' : 'Delete permanently'}
+          </Button>
+        </Card>
+      ) : null}
+      </section>
     </div>
   );
 }

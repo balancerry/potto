@@ -1,14 +1,15 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AmountInput } from '@/components/potto/AmountInput';
 import { Button, PrimaryButton } from '@/components/potto/Button';
+import { Chip } from '@/components/potto/Chip';
 import { ConfirmDialog } from '@/components/potto/ConfirmDialog';
-import { EmptyState } from '@/components/potto/EmptyState';
 import { ScreenHeader } from '@/components/potto/ScreenHeader';
-import { usePottoColors } from '@/constants/potto-theme';
+import { Radius, usePottoColors } from '@/constants/potto-theme';
+import { getActiveCategories } from '@/logic/categories';
 import { canEditPot } from '@/logic/permissions';
 import { usePottoStore } from '@/store/PottoStore';
 import { useToast } from '@/store/ToastContext';
@@ -17,7 +18,7 @@ import { toPaise, toRupees } from '@/utils/money';
 export default function PotSettingsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = usePottoColors();
-  const { getPot, getCurrentMember, updatePotDetails, archivePot } = usePottoStore();
+  const { getPot, getCurrentMember, updatePotDetails, archivePot, getPoolManagerMemberId, assignPoolManager, getCategories } = usePottoStore();
   const { showToast } = useToast();
   const pot = getPot(id);
   const me = getCurrentMember(id);
@@ -28,6 +29,10 @@ export default function PotSettingsScreen() {
     pot?.expectedContributionPerMember ? String(toRupees(pot.expectedContributionPerMember)) : '',
   );
   const [confirmArchiveVisible, setConfirmArchiveVisible] = useState(false);
+  const managerId = getPoolManagerMemberId(id);
+  const manager = pot?.members.find((m) => m.id === managerId);
+  const [nextManager, setNextManager] = useState(managerId ?? '');
+  const activeCategoryCount = getActiveCategories(getCategories(id)).length;
 
   if (!pot) return null;
 
@@ -35,7 +40,12 @@ export default function PotSettingsScreen() {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.paper }]}>
         <ScreenHeader title="Pot Settings" onBack={() => router.back()} />
-        <EmptyState icon="🔒" title="Admins only" subtitle="Only Pot admins can change these settings." />
+        <View style={styles.scroll}>
+          <Text style={[styles.label, { color: colors.inkSoft }]}>POOL MANAGER</Text>
+          <Text style={{ color: colors.ink, fontSize: 16 }}>{manager?.name ?? 'Not assigned'}</Text>
+          <Text style={{ color: colors.inkSoft, marginTop: 8 }}>Pool Bank and Pool Cash hold this pot&apos;s money.</Text>
+          <CategoriesLink potId={id} count={activeCategoryCount} />
+        </View>
       </SafeAreaView>
     );
   }
@@ -88,14 +98,42 @@ export default function PotSettingsScreen() {
             style={[styles.input, { borderColor: colors.line, backgroundColor: colors.surfaceSunk, color: colors.ink }]}
           />
         </Field>
-        <Field label="Expected contribution per member (optional)">
+        <Field label="Expected contribution per member">
           <AmountInput value={expectedContribution} onChangeText={setExpectedContribution} />
           <Text style={[styles.hint, { color: colors.inkSoft }]}>
-            Used only to flag who’s below the target on the Contributions tab — never affects balances or settlement. Leave blank to remove it.
+            Optional target for the group. It does not require every member to contribute this amount.
           </Text>
         </Field>
         <View style={styles.actions}>
           <PrimaryButton label="Save Changes" onPress={saveDetails} fullWidth disabled={!name.trim()} />
+        </View>
+
+        <CategoriesLink potId={id} count={activeCategoryCount} />
+
+        <View style={{ marginTop: 24 }}>
+          <Text style={[styles.label, { color: colors.inkSoft }]}>POOL MANAGEMENT</Text>
+          <Text style={{ color: colors.ink, marginBottom: 8 }}>
+            Who is managing the pool? {manager?.name ?? 'Not assigned'}
+          </Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {pot.members.filter((m) => m.status === 'active').map((m) => (
+              <Chip key={m.id} label={m.name} selected={nextManager === m.id} onPress={() => setNextManager(m.id)} />
+            ))}
+          </View>
+          <View style={{ marginTop: 12 }}>
+            <Button
+              label="Change pool manager"
+              variant="secondary"
+              onPress={async () => {
+                try {
+                  await assignPoolManager(pot.id, nextManager);
+                  showToast('Pool manager updated');
+                } catch (err) {
+                  showToast(err instanceof Error ? err.message : 'Could not update pool manager');
+                }
+              }}
+            />
+          </View>
         </View>
 
         <View style={[styles.dangerZone, { borderTopColor: colors.line }]}>
@@ -120,6 +158,28 @@ export default function PotSettingsScreen() {
   );
 }
 
+/** Entry point to the Categories screen. Everyone can open it; only admins can change anything there. */
+function CategoriesLink({ potId, count }: { potId: string; count: number }) {
+  const colors = usePottoColors();
+  return (
+    <View style={{ marginTop: 24 }}>
+      <Text style={[styles.label, { color: colors.inkSoft }]}>CATEGORIES</Text>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => router.push(`/pot/${potId}/categories`)}
+        style={[styles.linkRow, { borderColor: colors.line, backgroundColor: colors.surface }]}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: colors.ink, fontSize: 15, fontWeight: '600' }}>Categories</Text>
+          <Text style={{ color: colors.inkSoft, fontSize: 12.5, marginTop: 2 }}>
+            {count} active · Customize how expenses are organized
+          </Text>
+        </View>
+        <Text style={{ color: colors.inkSoft, fontSize: 18 }}>{'›'}</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   const colors = usePottoColors();
   return (
@@ -137,6 +197,7 @@ const styles = StyleSheet.create({
   label: { fontSize: 12.5, fontWeight: '600', marginBottom: 6 },
   input: { paddingVertical: 12, paddingHorizontal: 14, borderRadius: 9, borderWidth: 1, fontSize: 15 },
   hint: { fontSize: 12, marginTop: 6, lineHeight: 16 },
+  linkRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 14, borderRadius: Radius.md, borderWidth: 1, minHeight: 56 },
   actions: { paddingTop: 8 },
   dangerZone: { marginTop: 32, paddingTop: 20, borderTopWidth: 1, gap: 12 },
   dangerLabel: { fontSize: 11.5, fontWeight: '700', letterSpacing: 0.6 },

@@ -1,6 +1,6 @@
-import { buildPotSummaryFilename } from '@/logic/pot-summary-html';
+import { buildPotSummaryFilename, buildPotSummaryHtml } from '@/logic/pot-summary-html';
 import { buildPotSummaryViewModel } from '@/logic/pot-summary';
-import type { Commitment, CommitmentPayment, Member, Pot, Transaction } from '@/types/models';
+import type { Commitment, CommitmentPayment, Member, Pot, PotCategory, Transaction } from '@/types/models';
 
 // The exact worked example from the Settle Up product spec / accounting.test.ts:
 // Contributions Raj 4000, Sakshi 4000, Mona 3000, Sunil 5400 (total 16400).
@@ -55,12 +55,12 @@ function makeTransactions(): Transaction[] {
   }));
 
   const expenses: [string, number, string][] = [
-    ['Cruise', 720000, 'Activities'],
-    ['Flight', 600000, 'Transport'],
-    ['Pre Booking Payment', 210000, 'Stay'],
-    ['Stay Advance', 350000, 'Stay'],
+    ['Cruise', 720000, 'cat_activities'],
+    ['Flight', 600000, 'cat_transport'],
+    ['Pre Booking Payment', 210000, 'cat_stay'],
+    ['Stay Advance', 350000, 'cat_stay'],
   ];
-  expenses.forEach(([description, amount, category], i) => {
+  expenses.forEach(([description, amount, categoryId], i) => {
     const base = Math.floor(amount / ids.length);
     const remainder = amount - base * ids.length;
     txs.push({
@@ -69,7 +69,7 @@ function makeTransactions(): Transaction[] {
       type: 'pool_expense',
       description,
       amount,
-      category,
+      categoryId,
       paymentSource: 'pool',
       participants: ids,
       splits: ids.map((memberId, idx) => ({ memberId, amount: base + (idx < remainder ? 1 : 0) })),
@@ -83,11 +83,17 @@ function makeTransactions(): Transaction[] {
   return txs;
 }
 
+const CATEGORIES: PotCategory[] = [
+  { id: 'cat_activities', potId: 'trip', name: 'Beach Activities', icon: 'sparkles', color: 'teal', isActive: true, isDefault: false, sortOrder: 1 },
+  { id: 'cat_transport', potId: 'trip', name: 'Transport', icon: 'car', color: 'blue', isActive: true, isDefault: true, sortOrder: 2 },
+  { id: 'cat_stay', potId: 'trip', name: 'Stay & Hotels', icon: 'bed', color: 'purple', isActive: true, isDefault: true, sortOrder: 3 },
+];
+
 describe('buildPotSummaryViewModel: spec worked example', () => {
   const members = makeMembers();
   const pot = makePot(members);
   const txs = makeTransactions();
-  const vm = buildPotSummaryViewModel(pot, txs, [], [], '2026-09-17T00:00:00.000Z');
+  const vm = buildPotSummaryViewModel(pot, txs, [], [], CATEGORIES, '2026-09-17T00:00:00.000Z');
 
   it('pool totals match the accounting engine exactly', () => {
     expect(vm.pool.contributed).toBe(1640000);
@@ -111,7 +117,8 @@ describe('buildPotSummaryViewModel: spec worked example', () => {
   it('expense summary/details are pool expenses only, grouped by category, summing back to the total', () => {
     expect(vm.expenses.total).toBe(1880000);
     const byCategory = Object.fromEntries(vm.expenses.categories.map((c) => [c.category, c.amount]));
-    expect(byCategory).toEqual({ Activities: 720000, Transport: 600000, Stay: 560000 });
+    // Names come from the Pot's own categories, not a hardcoded list.
+    expect(byCategory).toEqual({ 'Beach Activities': 720000, Transport: 600000, 'Stay & Hotels': 560000 });
     expect(vm.expenses.categories.reduce((s, c) => s + c.amount, 0)).toBe(1880000);
     expect(vm.expenses.items).toHaveLength(4);
     // Sorted newest first.
@@ -232,7 +239,7 @@ describe('buildPotSummaryViewModel: multiple contributions and duplicate display
   });
 });
 
-describe('buildPotSummaryViewModel: Upcoming Payments isolation', () => {
+describe('buildPotSummaryViewModel: Planned Payments isolation', () => {
   it('never lets a Commitment affect Total Spent, Pool Balance, or Settlement', () => {
     const members = makeMembers();
     const pot = makePot(members);
@@ -290,5 +297,54 @@ describe('buildPotSummaryFilename', () => {
     expect(buildPotSummaryFilename('Goa 2026')).toBe('Potto_Goa_2026_Summary.pdf');
     expect(buildPotSummaryFilename('Trip: Manali / 2027?')).toBe('Potto_Trip_Manali_2027_Summary.pdf');
     expect(buildPotSummaryFilename('')).toBe('Potto_Pot_Summary.pdf');
+  });
+});
+
+describe('buildPotSummaryViewModel: Pot categories', () => {
+  const members = makeMembers();
+  const pot = makePot(members);
+  const txs = makeTransactions();
+  const names = (vm: ReturnType<typeof buildPotSummaryViewModel>) => vm.expenses.categories.map((c) => c.category);
+
+  it('renaming a category re-labels the report without changing any amount', () => {
+    const before = buildPotSummaryViewModel(pot, txs, [], [], CATEGORIES);
+    const renamed = CATEGORIES.map((c) => (c.id === 'cat_transport' ? { ...c, name: 'Travel' } : c));
+    const after = buildPotSummaryViewModel(pot, txs, [], [], renamed);
+    expect(names(after)).toContain('Travel');
+    expect(names(after)).not.toContain('Transport');
+    expect(after.expenses.categories.map((c) => c.amount)).toEqual(before.expenses.categories.map((c) => c.amount));
+    expect(after.pool).toEqual(before.pool);
+  });
+
+  it('archived categories keep reporting their historical spend, marked as archived', () => {
+    const archived = CATEGORIES.map((c) => (c.id === 'cat_stay' ? { ...c, isActive: false } : c));
+    const vm = buildPotSummaryViewModel(pot, txs, [], [], archived);
+    const stay = vm.expenses.categories.find((c) => c.categoryId === 'cat_stay');
+    expect(stay).toMatchObject({ category: 'Stay & Hotels · Archived', amount: 560000 });
+    expect(vm.expenses.categories.reduce((sum, c) => sum + c.amount, 0)).toBe(vm.expenses.total);
+  });
+
+  it('expenses without a category (or with an unknown id) are reported as Uncategorized', () => {
+    const mixed: Transaction[] = txs.map((t) =>
+      t.id === 'exp_0' ? { ...t, categoryId: undefined } : t.id === 'exp_1' ? { ...t, categoryId: 'ghost' } : t,
+    );
+    const vm = buildPotSummaryViewModel(pot, mixed, [], [], CATEGORIES);
+    const none = vm.expenses.categories.find((c) => c.categoryId === null);
+    expect(none).toMatchObject({ category: 'Uncategorized', amount: 720000 + 600000 });
+    expect(vm.expenses.categories.reduce((sum, c) => sum + c.amount, 0)).toBe(1880000);
+  });
+
+  it('works with no categories at all (nothing is lost)', () => {
+    const vm = buildPotSummaryViewModel(pot, txs, [], []);
+    expect(vm.expenses.categories).toHaveLength(1);
+    expect(vm.expenses.categories[0]).toMatchObject({ category: 'Uncategorized', amount: 1880000 });
+  });
+
+  it('the PDF uses the Pot-specific category names', () => {
+    const vm = buildPotSummaryViewModel(pot, txs, [], [], CATEGORIES);
+    const html = buildPotSummaryHtml(vm);
+    expect(html).toContain('Beach Activities');
+    expect(html).toContain('Stay &amp; Hotels');
+    expect(html).not.toMatch(/>Stay</);
   });
 });

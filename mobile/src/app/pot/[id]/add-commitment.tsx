@@ -8,9 +8,9 @@ import { Chip } from '@/components/potto/Chip';
 import { DatePickerField } from '@/components/potto/DatePickerField';
 import { EmptyState } from '@/components/potto/EmptyState';
 import { ScreenHeader } from '@/components/potto/ScreenHeader';
-import { EXPENSE_CATEGORIES } from '@/constants/categories';
+import { CategoryPicker } from '@/components/categories/CategoryPicker';
 import { usePottoColors } from '@/constants/potto-theme';
-import { canCreateCommitment, canEditCommitment } from '@/logic/permissions';
+import { canCreateCommitment, canEditCommitment, canManageCategories } from '@/logic/permissions';
 import { usePottoStore } from '@/store/PottoStore';
 import { useToast } from '@/store/ToastContext';
 import type { Commitment } from '@/types/models';
@@ -30,7 +30,7 @@ export default function AddCommitmentScreen() {
   if (!allowed) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.paper }]}>
-        <ScreenHeader title="Upcoming Payment" onBack={() => router.back()} />
+        <ScreenHeader title="Planned payment" onBack={() => router.back()} />
         <EmptyState icon="🔒" title="Not permitted" subtitle="You don't have permission to do this in this Pot." />
       </SafeAreaView>
     );
@@ -42,12 +42,12 @@ export default function AddCommitmentScreen() {
 function CommitmentForm({ potId, editingCommitment }: { potId: string; editingCommitment?: Commitment }) {
   const colors = usePottoColors();
   const isEdit = !!editingCommitment;
-  const { createCommitment, updateCommitment } = usePottoStore();
+  const { createCommitment, updateCommitment, getCategories, getCurrentMember } = usePottoStore();
   const { showToast } = useToast();
 
   const [title, setTitle] = useState(editingCommitment?.title ?? '');
   const [vendorName, setVendorName] = useState(editingCommitment?.vendorName ?? '');
-  const [category, setCategory] = useState<string | undefined>(editingCommitment?.category);
+  const [categoryId, setCategoryId] = useState<string | undefined>(editingCommitment?.categoryId);
   const [description, setDescription] = useState(editingCommitment?.description ?? '');
   const [totalAmountText, setTotalAmountText] = useState(
     editingCommitment ? String(toRupees(editingCommitment.totalAmount)) : '',
@@ -73,7 +73,7 @@ function CommitmentForm({ potId, editingCommitment }: { potId: string; editingCo
     const payload = {
       title: title.trim(),
       vendorName: vendorName.trim() || undefined,
-      category,
+      categoryId,
       description: description.trim() || undefined,
       totalAmount,
       dueDate: hasDueDate ? dueDate : undefined,
@@ -88,13 +88,13 @@ function CommitmentForm({ potId, editingCommitment }: { potId: string; editingCo
       setAmountError(result.reason);
       return;
     }
-    showToast(isEdit ? 'Changes saved' : 'Upcoming Payment created');
+    showToast(isEdit ? 'Planned payment updated' : 'Planned payment added');
     router.back();
   };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.paper }]}>
-      <ScreenHeader title={isEdit ? 'Edit Upcoming Payment' : 'Add Upcoming Payment'} onBack={() => router.back()} />
+      <ScreenHeader title={isEdit ? 'Edit planned payment' : 'Add planned payment'} onBack={() => router.back()} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <Field label="Title">
@@ -134,11 +134,13 @@ function CommitmentForm({ potId, editingCommitment }: { potId: string; editingCo
           </Field>
 
           <Field label="Category (optional)">
-            <View style={styles.chipRow}>
-              {EXPENSE_CATEGORIES.map((c) => (
-                <Chip key={c} label={c} selected={category === c} onPress={() => setCategory(category === c ? undefined : c)} />
-              ))}
-            </View>
+            <CategoryPicker
+              potId={potId}
+              categories={getCategories(potId)}
+              selectedId={categoryId}
+              onSelect={setCategoryId}
+              canManage={canManageCategories(getCurrentMember(potId))}
+            />
           </Field>
 
           <Field label="Due date">

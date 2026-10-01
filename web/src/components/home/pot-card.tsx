@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Pin } from 'lucide-react';
 import { formatMoney, initials } from '@/lib/core/money';
 import type { PotDisplayStatus, PotListItem } from '@/lib/queries/pots';
 import { PotCardMenu } from '@/components/home/pot-card-menu';
@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 
 const STATUS_LABEL: Record<PotDisplayStatus, string> = {
   active: 'Active',
-  upcoming: 'Upcoming',
+  upcoming: 'Planned',
   archived: 'Archived',
 };
 
@@ -26,7 +26,7 @@ function MemberAvatars({ names }: { names: string[] }) {
             key={`${name}-${index}`}
             title={name}
             className={cn(
-              'flex size-8 items-center justify-center rounded-full border-2 border-surface text-[10px] font-semibold',
+              'flex size-8 items-center justify-center rounded-[10px] border-2 border-surface text-[10px] font-semibold',
               avatarTone(name),
             )}
           >
@@ -34,7 +34,7 @@ function MemberAvatars({ names }: { names: string[] }) {
           </li>
         ))}
         {overflow > 0 ? (
-          <li className="flex size-8 items-center justify-center rounded-full border-2 border-surface bg-surface-sunk text-[10px] font-semibold text-ink-soft">
+          <li className="flex size-8 items-center justify-center rounded-[10px] border-2 border-surface bg-surface-sunk text-[10px] font-semibold text-ink-soft">
             +{overflow}
           </li>
         ) : null}
@@ -47,12 +47,13 @@ function MemberAvatars({ names }: { names: string[] }) {
 }
 
 function avatarTone(name: string): string {
+  // Cycle through Potto's own palette only — no semantic (pos/neg) colors here,
+  // those are reserved for balance states, not decorative member identity.
   const tones = [
+    'bg-accent text-white',
     'bg-accent-soft text-accent',
-    'bg-pos-soft text-pos',
     'bg-gold-soft text-gold',
-    'bg-neg-soft text-neg',
-    'bg-surface-sunk text-ink',
+    'bg-ink text-paper',
   ];
   let hash = 0;
   for (let i = 0; i < name.length; i += 1) hash = (hash + name.charCodeAt(i) * (i + 1)) % tones.length;
@@ -66,7 +67,7 @@ function StatusMark({ status }: { status: PotDisplayStatus }) {
         'inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide',
         status === 'archived' && 'text-ink-soft',
         status === 'upcoming' && 'text-gold',
-        status === 'active' && 'text-pos',
+        status === 'active' && 'text-accent',
       )}
     >
       <span
@@ -75,7 +76,7 @@ function StatusMark({ status }: { status: PotDisplayStatus }) {
           'size-1.5 rounded-full',
           status === 'archived' && 'border border-ink-soft/50 bg-transparent',
           status === 'upcoming' && 'border border-gold bg-transparent',
-          status === 'active' && 'bg-pos',
+          status === 'active' && 'bg-accent',
         )}
       />
       {STATUS_LABEL[status]}
@@ -99,12 +100,22 @@ function OpenPotLabel() {
   return (
     <>
       {pending ? 'Opening…' : 'Open pot'}
-      {pending ? <LinkPendingHint /> : <ArrowRight className="size-4" />}
+      {pending ? <LinkPendingHint /> : <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />}
     </>
   );
 }
 
-export function PotCard({ item }: { item: PotListItem }) {
+export function PotCard({
+  item,
+  userId = null,
+  pinned = false,
+  onPinsChange,
+}: {
+  item: PotListItem;
+  userId?: string | null;
+  pinned?: boolean;
+  onPinsChange?: (pins: string[]) => void;
+}) {
   const { pot, poolBalance, contributed, spent, displayStatus, permissions } = item;
   const activeMembers = pot.members.filter((m) => m.status === 'active');
   const memberNames = activeMembers.map((m) => m.name);
@@ -118,6 +129,7 @@ export function PotCard({ item }: { item: PotListItem }) {
         'group relative flex h-full flex-col rounded-[var(--radius-lg)] border border-line bg-surface p-5 shadow-sm transition',
         'hover:-translate-y-0.5 hover:border-accent/25 hover:shadow-md',
         'focus-within:border-accent/30 focus-within:shadow-md',
+        pinned && 'border-accent/35 ring-1 ring-accent/15',
       )}
     >
       {/* Stretch link makes the card openable without capturing menu/button clicks */}
@@ -131,12 +143,27 @@ export function PotCard({ item }: { item: PotListItem }) {
       </Link>
 
       <div className="relative z-10 flex items-start justify-between gap-2">
-        <StatusMark status={displayStatus} />
-        <PotCardMenu potId={pot.id} potName={pot.name} permissions={permissions} />
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusMark status={displayStatus} />
+          {pinned ? (
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-accent">
+              <Pin className="size-3 fill-current" aria-hidden />
+              Pinned
+            </span>
+          ) : null}
+        </div>
+        <PotCardMenu
+          potId={pot.id}
+          potName={pot.name}
+          permissions={permissions}
+          userId={userId}
+          pinned={pinned}
+          onPinsChange={onPinsChange}
+        />
       </div>
 
       <div className="pointer-events-none relative z-0 mt-4 min-w-0 flex-1">
-        <h2 className="font-display text-xl font-semibold tracking-tight text-ink">
+        <h2 className="font-display text-2xl font-semibold tracking-tight text-ink transition-colors group-hover:text-accent">
           <span className="line-clamp-2">{pot.name}</span>
         </h2>
         {pot.description ? (
@@ -148,37 +175,52 @@ export function PotCard({ item }: { item: PotListItem }) {
         <MemberAvatars names={memberNames} />
       </div>
 
-      <dl className="pointer-events-none relative mt-5 grid grid-cols-3 gap-2 border-t border-line/80 pt-4">
+      <dl className="pointer-events-none relative mt-5 border-t border-line/80 pt-4">
         <div>
-          <dt className="text-[11px] uppercase tracking-wide text-ink-soft">Pool balance</dt>
+          <dt className="text-[11px] font-medium uppercase tracking-wide text-ink-soft">Pool balance</dt>
           <dd
             className={cn(
-              'mt-1 font-display text-lg font-semibold tabular-nums',
+              'mt-1 font-money text-[28px] font-bold leading-none',
               isShort ? 'text-neg' : 'text-accent',
             )}
           >
             {formatMoney(poolBalance)}
           </dd>
         </div>
-        <div>
-          <dt className="text-[11px] uppercase tracking-wide text-ink-soft">Contributed</dt>
-          <dd className="mt-1 font-display text-lg font-semibold tabular-nums text-ink">
-            {formatMoney(contributed)}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-[11px] uppercase tracking-wide text-ink-soft">Spent</dt>
-          <dd className="mt-1 font-display text-lg font-semibold tabular-nums text-ink">
-            {formatMoney(spent)}
-          </dd>
+
+        <div className="mt-4 grid grid-cols-2 gap-4">
+          <div>
+            <dt className="text-[11px] font-medium uppercase tracking-wide text-ink-soft">Contributed</dt>
+            <dd className="mt-1 font-money text-[15px] font-semibold text-ink">{formatMoney(contributed)}</dd>
+          </div>
+          <div>
+            <dt className="text-[11px] font-medium uppercase tracking-wide text-ink-soft">Spent</dt>
+            <dd className="mt-1 font-money text-[15px] font-semibold text-ink">{formatMoney(spent)}</dd>
+          </div>
         </div>
       </dl>
+
+      {contributed > 0 ? (
+        <div
+          className="pointer-events-none relative mt-3 h-1.5 w-full overflow-hidden rounded-full bg-accent-soft/70"
+          role="progressbar"
+          aria-label="Spent of contributed"
+          aria-valuenow={Math.min(100, Math.round((spent / contributed) * 100))}
+          aria-valuemin={0}
+          aria-valuemax={100}
+        >
+          <div
+            className="h-full rounded-full bg-gold"
+            style={{ width: `${Math.min(100, Math.round((spent / contributed) * 100))}%` }}
+          />
+        </div>
+      ) : null}
 
       <div className="pointer-events-none relative mt-2 min-h-4">
         {isShort ? (
           <p className="text-xs font-medium text-neg">Pool is short</p>
         ) : isEmptyPool ? (
-          <p className="text-xs text-ink-soft">No money added yet</p>
+          <p className="text-xs italic text-ink-soft">No money added yet</p>
         ) : null}
       </div>
 
@@ -187,8 +229,8 @@ export function PotCard({ item }: { item: PotListItem }) {
           href={href}
           prefetch
           className={cn(
-            'inline-flex h-10 w-full items-center justify-center gap-2 rounded-[var(--radius-md)] border border-line bg-surface text-sm font-medium text-ink transition-colors',
-            'hover:border-accent/30 hover:bg-accent-soft/60 hover:text-accent',
+            'inline-flex h-10 w-full items-center justify-center gap-2 rounded-[var(--radius-md)] border-[1.5px] border-accent/60 bg-surface text-sm font-semibold text-accent transition-colors',
+            'hover:border-accent hover:bg-accent hover:text-white',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30',
           )}
         >
@@ -210,10 +252,10 @@ export function PotCardSkeleton() {
         <div className="size-8 rounded-full bg-surface-sunk" />
         <div className="size-8 rounded-full bg-surface-sunk" />
       </div>
-      <div className="mt-8 grid grid-cols-3 gap-2">
-        <div className="h-10 rounded bg-surface-sunk" />
-        <div className="h-10 rounded bg-surface-sunk" />
-        <div className="h-10 rounded bg-surface-sunk" />
+      <div className="mt-8 h-7 w-1/2 rounded bg-surface-sunk" />
+      <div className="mt-4 grid grid-cols-2 gap-4">
+        <div className="h-5 rounded bg-surface-sunk" />
+        <div className="h-5 rounded bg-surface-sunk" />
       </div>
       <div className="mt-6 h-10 rounded-[var(--radius-md)] bg-surface-sunk" />
     </div>

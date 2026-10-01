@@ -31,6 +31,8 @@ export function ActionMenu({ items }: { items: ActionMenuItem[] }) {
     <>
       <Pressable
         ref={triggerRef}
+        accessibilityRole="button"
+        accessibilityLabel="More"
         onPress={openMenu}
         style={[styles.trigger, { borderColor: colors.line, backgroundColor: colors.surface }]}>
         <Text style={{ color: colors.ink, fontSize: 18, fontWeight: '700' }}>{'⋯'}</Text>
@@ -66,8 +68,8 @@ export function ActionMenu({ items }: { items: ActionMenuItem[] }) {
 
 const styles = StyleSheet.create({
   trigger: {
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
     borderRadius: 18,
     borderWidth: 1,
     alignItems: 'center',

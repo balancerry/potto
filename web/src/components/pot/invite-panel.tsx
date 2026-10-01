@@ -44,7 +44,7 @@ export function InvitePanel({ pot, isAdmin }: { pot: Pot; isAdmin: boolean }) {
           <QRCodeSVG value={buildJoinCodePayload(pot.joinCode)} size={140} />
         </div>
         <div>
-          <p className="font-display text-3xl font-semibold tracking-widest text-ink">{pot.joinCode}</p>
+          <p className="font-sans text-3xl font-semibold tracking-widest text-ink">{pot.joinCode}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             <Button size="sm" onClick={() => void copyText('Join code', pot.joinCode)}>
               Copy code

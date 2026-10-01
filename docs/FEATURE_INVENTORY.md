@@ -1,6 +1,6 @@
 # Feature Inventory
 
-Complete feature list derived from `src/app/` and `PottoStore`. Every row must reach parity in the web app.
+Complete feature list derived from `src/app/` and `PottoStore`. Web parity status is tracked in [PARITY.md](PARITY.md).
 
 | Feature | Screens | Roles | Actions | Data R/W | Business rules | Empty / error |
 |---------|---------|-------|---------|----------|----------------|---------------|
@@ -25,7 +25,7 @@ Complete feature list derived from `src/app/` and `PottoStore`. Every row must r
 | Commitments list | `/pot/[id]/commitments` | Member | Add / open | Read | Remaining ≠ Total Spent | Empty |
 | Add/edit commitment | `/pot/[id]/add-commitment` | Write | CRUD fields | create/update commitment | Never moves money | Not permitted |
 | Commitment detail | `/pot/[id]/commitment/[id]` | Member | Cancel (admin), add payment, edit | cancel; link expense | Paid from live tx amounts | Not found |
-| Auth (web new) | `/login`, `/auth/callback` | Public | Magic link | Session | Supabase Auth | Expired link |
+| Auth | `(auth)/*` / `/login`, `/auth/*` | Public | Password, sign-up, magic link, reset | Session | Supabase Auth | Expired link |
 | Logout | Shell | Auth | Sign out | Session clear | — | — |
 
 ## Navigation map (web URLs)
@@ -44,4 +44,13 @@ Complete feature list derived from `src/app/` and `PottoStore`. Every row must r
 - Desktop sidebar navigation inside a pot
 - Tables for transactions/members on large screens; cards on small
 - URL query filters for activity type
-- Magic-link auth (mobile had simulated identity)
+
+## Added since the original MVP
+
+| Feature | Mobile | Web |
+|---------|--------|-----|
+| Pool management (transfer, reconcile, pool manager) | `pool`, `transfer`, `reconcile` | `pool`, `pool/transfer`, `pool/reconcile` |
+| Pot categories | `categories` | `settings/categories` |
+| Notifications | `/notifications` | bell in app shell |
+| Pinned / recently visited pots | `HomeScreen` | `your-pots-dashboard` |
+| Owner role | `MemberRole = 'owner'` | same |

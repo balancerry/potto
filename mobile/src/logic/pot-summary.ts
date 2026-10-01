@@ -17,7 +17,16 @@ import {
   calculateTotalUpcomingRemaining,
   deriveCommitmentStatus,
 } from '@/logic/commitments';
-import type { Commitment, CommitmentPayment, CommitmentStatus, MemberStatus, Pot, Transaction } from '@/types/models';
+import { categoryLabel, resolveCategory } from '@/logic/categories';
+import type {
+  Commitment,
+  CommitmentPayment,
+  CommitmentStatus,
+  MemberStatus,
+  Pot,
+  PotCategory,
+  Transaction,
+} from '@/types/models';
 
 /**
  * The single Pot Summary view-model: every number here is derived only from
@@ -37,6 +46,9 @@ export interface PotSummaryMemberContribution {
 }
 
 export interface PotSummaryExpenseCategory {
+  /** Pot category id, or null for expenses with no category ("Uncategorized"). */
+  categoryId: string | null;
+  /** Current display name (renames flow through; archived ones carry "· Archived"). */
   category: string;
   amount: number; // paise
   /** 0-100, one decimal place. */
@@ -146,6 +158,7 @@ export function buildPotSummaryViewModel(
   transactions: Transaction[],
   commitments: Commitment[],
   commitmentPayments: CommitmentPayment[],
+  categories: PotCategory[] = [],
   generatedAt: string = new Date().toISOString(),
 ): PotSummaryViewModel {
   const members = pot.members;
@@ -181,14 +194,18 @@ export function buildPotSummaryViewModel(
   const totalPoolExpenses = calculateTotalPoolExpenses(transactions);
   const poolExpenseTxs = transactions.filter((t) => t.type === 'pool_expense');
 
-  const categoryTotals = new Map<string, number>();
+  // Grouped by category id (never by name) so renames are reflected and two
+  // categories that ever shared a label stay separate. No category, or an id
+  // that no longer resolves, is reported as Uncategorized.
+  const categoryTotals = new Map<string | null, number>();
   poolExpenseTxs.forEach((t) => {
-    const category = t.category?.trim() || 'Other';
-    categoryTotals.set(category, (categoryTotals.get(category) ?? 0) + t.amount);
+    const id = resolveCategory(t.categoryId, categories).id;
+    categoryTotals.set(id, (categoryTotals.get(id) ?? 0) + t.amount);
   });
-  const categories: PotSummaryExpenseCategory[] = Array.from(categoryTotals.entries())
-    .map(([category, amount]) => ({
-      category,
+  const categoryRows: PotSummaryExpenseCategory[] = Array.from(categoryTotals.entries())
+    .map(([categoryId, amount]) => ({
+      categoryId,
+      category: categoryLabel(resolveCategory(categoryId, categories)),
       amount,
       percentage: totalPoolExpenses > 0 ? Math.round((amount / totalPoolExpenses) * 1000) / 10 : 0,
     }))
@@ -199,9 +216,18 @@ export function buildPotSummaryViewModel(
       if (a.date !== b.date) return a.date < b.date ? 1 : -1;
       return a.createdAt < b.createdAt ? 1 : -1;
     })
-    .map((t) => ({ id: t.id, date: t.date, description: t.description, amount: t.amount, category: t.category }));
+    .map((t) => {
+      const display = resolveCategory(t.categoryId, categories);
+      return {
+        id: t.id,
+        date: t.date,
+        description: t.description,
+        amount: t.amount,
+        category: display.uncategorized ? undefined : categoryLabel(display),
+      };
+    });
 
-  // ---- Upcoming payments (never affects the totals above) ------------------
+  // ---- Planned payments (never affects the totals above) ------------------
   const upcomingTotal = calculateTotalUpcomingRemaining(commitments, commitmentPayments, transactions);
   const upcomingItems: PotSummaryUpcomingPayment[] = commitments
     .filter((c) => c.status !== 'cancelled')
@@ -252,7 +278,7 @@ export function buildPotSummaryViewModel(
     generatedAt,
     pool: { contributed, totalSpent, balance: poolBalance },
     contributions: { total: contributed, members: contributionMembers, expectedPerMember },
-    expenses: { total: totalPoolExpenses, categories, items },
+    expenses: { total: totalPoolExpenses, categories: categoryRows, items },
     upcoming: { totalRemaining: upcomingTotal, items: upcomingItems },
     balances,
     settlement: {

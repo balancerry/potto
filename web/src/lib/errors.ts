@@ -19,6 +19,14 @@ export function friendlyError(err: unknown): string {
 
   const msg = raw.toLowerCase();
 
+  // Category errors raised by the database already read as plain sentences.
+  if (msg.includes('category_same_pot_fk')) {
+    return 'That category does not belong to this pot';
+  }
+  if (msg.includes('categor') && !msg.includes('violates') && !msg.includes('row-level security')) {
+    return raw;
+  }
+
   if (msg.includes('not authorized') || msg.includes('permission') || msg.includes('row-level security')) {
     return 'You do not have permission to do that';
   }
@@ -56,16 +64,16 @@ export function friendlyError(err: unknown): string {
     return 'Selected member does not belong to this pot';
   }
   if (msg.includes('commitment not found')) {
-    return 'Upcoming payment not found';
+    return 'Planned payment not found';
   }
   if (msg.includes('has been cancelled') || msg.includes('commitment has been cancelled')) {
-    return 'This upcoming payment has been cancelled';
+    return 'This planned payment has been cancelled';
   }
   if (msg.includes('total amount must be greater than zero') || msg.includes('enter an amount greater than zero')) {
     return 'Enter an amount greater than zero';
   }
   if (msg.includes('payment exceeds remaining')) {
-    return 'Payment exceeds the remaining amount on this upcoming payment';
+    return 'Payment exceeds the remaining amount on this planned payment';
   }
   if (msg.includes('duplicate key') || msg.includes('unique constraint')) {
     if (msg.includes('invite_code') || msg.includes('join_code')) {

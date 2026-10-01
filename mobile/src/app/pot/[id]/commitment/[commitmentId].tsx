@@ -4,7 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActionMenu } from '@/components/potto/ActionMenu';
-import { commitmentIcon, dueDateBadgeColors, DUE_DATE_LABEL } from '@/components/potto/CommitmentCard';
+import { CommitmentIcon, dueDateBadgeColors, DUE_DATE_LABEL } from '@/components/potto/CommitmentCard';
 import { ConfirmDialog } from '@/components/potto/ConfirmDialog';
 import { EmptyState } from '@/components/potto/EmptyState';
 import { ScreenHeader } from '@/components/potto/ScreenHeader';
@@ -18,20 +18,21 @@ import {
 import { canAddCommitmentPayment, canCancelCommitment, canEditCommitment } from '@/logic/permissions';
 import { usePottoStore } from '@/store/PottoStore';
 import { useToast } from '@/store/ToastContext';
+import { categoryLabel, resolveCategory } from '@/logic/categories';
 import type { CommitmentStatus } from '@/types/models';
 import { formatDateFull, formatMoney } from '@/utils/money';
 
 const STATUS_LABEL: Record<CommitmentStatus, string> = {
   planned: 'Planned',
-  partially_paid: 'Partially Paid',
-  fully_paid: 'Fully Paid',
+  partially_paid: 'Partially paid',
+  fully_paid: 'Paid',
   cancelled: 'Cancelled',
 };
 
 export default function CommitmentDetailScreen() {
   const { id, commitmentId } = useLocalSearchParams<{ id: string; commitmentId: string }>();
   const colors = usePottoColors();
-  const { getPot, getCommitment, getCommitmentPayments, getTransactions, getCurrentMember, cancelCommitment } =
+  const { getPot, getCommitment, getCommitmentPayments, getTransactions, getCurrentMember, cancelCommitment, getCategories } =
     usePottoStore();
   const { showToast } = useToast();
   const [confirmVisible, setConfirmVisible] = useState(false);
@@ -40,6 +41,7 @@ export default function CommitmentDetailScreen() {
   const me = getCurrentMember(id);
   const commitment = getCommitment(id, commitmentId);
   const transactions = getTransactions(id);
+  const categories = getCategories(id);
   const payments = commitment ? getCommitmentPayments(id, commitment.id) : [];
 
   const memberName = (memberId?: string) => pot?.members.find((m) => m.id === memberId)?.name ?? '—';
@@ -47,8 +49,8 @@ export default function CommitmentDetailScreen() {
   if (!pot || !commitment) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.paper }]}>
-        <ScreenHeader title="Upcoming Payment" onBack={() => router.back()} />
-        <EmptyState icon="❓" title="Not found" subtitle="This Upcoming Payment may have been removed." />
+        <ScreenHeader title="Planned payment" onBack={() => router.back()} />
+        <EmptyState icon="❓" title="Not found" subtitle="This planned payment may have been removed." />
       </SafeAreaView>
     );
   }
@@ -72,7 +74,7 @@ export default function CommitmentDetailScreen() {
     setConfirmVisible(false);
     const result = await cancelCommitment(id, commitment.id);
     if (result.ok) {
-      showToast('Upcoming Payment cancelled');
+      showToast('Planned payment cancelled');
     } else {
       showToast(result.reason);
     }
@@ -86,13 +88,15 @@ export default function CommitmentDetailScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.paper }]}>
       <ScreenHeader
-        title="Upcoming Payment"
+        title="Planned payment"
         onBack={() => router.back()}
         right={menuItems.length > 0 ? <ActionMenu items={menuItems} /> : undefined}
       />
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.hero}>
-          <Text style={styles.icon}>{commitmentIcon(commitment.category)}</Text>
+          <View style={styles.icon}>
+            <CommitmentIcon categoryId={commitment.categoryId} categories={categories} size={52} />
+          </View>
           <Text style={[styles.title, { color: colors.ink }]}>{commitment.vendorName || commitment.title}</Text>
           {!!commitment.vendorName && commitment.title !== commitment.vendorName && (
             <Text style={[styles.subtitle, { color: colors.inkSoft }]}>{commitment.title}</Text>
@@ -111,7 +115,9 @@ export default function CommitmentDetailScreen() {
         <View style={[styles.rows, { borderColor: colors.line }]}>
           <Row label="Status" value={STATUS_LABEL[status]} colors={colors} />
           {commitment.dueDate && <Row label="Due date" value={formatDateFull(commitment.dueDate)} colors={colors} />}
-          {commitment.category && <Row label="Category" value={commitment.category} colors={colors} />}
+          {commitment.categoryId && (
+            <Row label="Category" value={categoryLabel(resolveCategory(commitment.categoryId, categories))} colors={colors} />
+          )}
           {commitment.description && <Row label="Notes" value={commitment.description} colors={colors} />}
           <Row label="Created by" value={memberName(commitment.createdBy)} colors={colors} />
         </View>
@@ -151,7 +157,7 @@ export default function CommitmentDetailScreen() {
 
       <ConfirmDialog
         visible={confirmVisible}
-        title="Cancel this Upcoming Payment?"
+        title="Cancel this planned payment?"
         message={`This will mark "${commitment.vendorName || commitment.title}" as cancelled. Existing payments and transactions are kept in history.`}
         confirmLabel="Cancel Payment"
         destructive
@@ -196,7 +202,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { paddingBottom: 40 },
   hero: { alignItems: 'center', paddingVertical: 14, paddingHorizontal: 20 },
-  icon: { fontSize: 40, marginBottom: 8 },
+  icon: { marginBottom: 8 },
   title: { fontSize: 20, fontWeight: '700', textAlign: 'center' },
   subtitle: { fontSize: 13.5, marginTop: 2 },
   badge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 },

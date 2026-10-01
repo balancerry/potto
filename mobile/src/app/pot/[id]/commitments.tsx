@@ -15,12 +15,13 @@ import { formatMoney } from '@/utils/money';
 export default function CommitmentsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = usePottoColors();
-  const { getPot, getCommitments, getCommitmentPayments, getTransactions, getCurrentMember } = usePottoStore();
+  const { getPot, getCommitments, getCommitmentPayments, getTransactions, getCurrentMember, getCategories } = usePottoStore();
 
   const pot = getPot(id);
   const me = getCurrentMember(id);
   const commitments = getCommitments(id);
   const transactions = getTransactions(id);
+  const categories = getCategories(id);
   const allPayments = commitments.flatMap((c) => getCommitmentPayments(id, c.id));
 
   if (!pot) return null;
@@ -36,18 +37,18 @@ export default function CommitmentsScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.paper }]}>
-      <ScreenHeader title="Upcoming Payments" onBack={() => router.back()} />
+      <ScreenHeader title="Planned Payments" onBack={() => router.back()} />
       <ScrollView contentContainerStyle={styles.scroll}>
         {commitments.length === 0 ? (
           <EmptyState
             icon="🧾"
-            title="No Upcoming Payments yet"
-            subtitle="Track a planned obligation like a hotel or venue booking before any money moves."
+            title="Nothing planned yet"
+            subtitle="Add a planned payment to keep your group on track."
           />
         ) : (
           <>
             {active.length === 0 && (
-              <EmptyState icon="✅" title="Nothing pending" subtitle="Every Upcoming Payment here is fully paid or cancelled." />
+              <EmptyState icon="✅" title="Nothing pending" subtitle="Every planned payment here is fully paid or cancelled." />
             )}
             {active.map(({ commitment }) => (
               <CommitmentCard
@@ -55,6 +56,7 @@ export default function CommitmentsScreen() {
                 commitment={commitment}
                 payments={allPayments}
                 transactions={transactions}
+                categories={categories}
                 onPress={() => router.push(`/pot/${id}/commitment/${commitment.id}`)}
               />
             ))}
@@ -68,6 +70,7 @@ export default function CommitmentsScreen() {
                     commitment={commitment}
                     payments={allPayments}
                     transactions={transactions}
+                    categories={categories}
                     onPress={() => router.push(`/pot/${id}/commitment/${commitment.id}`)}
                   />
                 ))}
@@ -87,7 +90,7 @@ export default function CommitmentsScreen() {
 
         {canCreateCommitment(me) && (
           <View style={styles.actions}>
-            <Button label="+ Add Upcoming Payment" onPress={() => router.push(`/pot/${id}/add-commitment`)} variant="accent" fullWidth />
+            <Button label="+ Add planned payment" onPress={() => router.push(`/pot/${id}/add-commitment`)} variant="accent" fullWidth />
           </View>
         )}
       </ScrollView>

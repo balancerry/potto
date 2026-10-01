@@ -201,6 +201,16 @@ export async function removeMember(potId: string, memberId: string): Promise<Act
 
     if (admin.id === memberId) return actionFail('You cannot remove yourself');
 
+    const { data: target } = await auth.supabase
+      .from('pot_members')
+      .select('role')
+      .eq('id', memberId)
+      .eq('pot_id', potId)
+      .maybeSingle();
+    if (target?.role === 'owner' || target?.role === 'admin') {
+      return actionFail('You cannot remove the owner or an admin');
+    }
+
     const { error } = await auth.supabase
       .from('pot_members')
       .update({ status: 'inactive', user_id: null })

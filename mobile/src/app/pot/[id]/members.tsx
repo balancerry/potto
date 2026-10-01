@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ActionMenu } from '@/components/potto/ActionMenu';
 import { PrimaryButton, SecondaryButton } from '@/components/potto/Button';
 import { MemberRow } from '@/components/potto/MemberRow';
+import { PotSectionNav } from '@/components/potto/PotSectionNav';
 import { ScreenHeader } from '@/components/potto/ScreenHeader';
 import { Radius, usePottoColors } from '@/constants/potto-theme';
 import { calculateMemberBalances, calculateMemberContributed } from '@/logic/accounting';
@@ -47,11 +48,12 @@ export default function MembersScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.paper }]}>
-      <ScreenHeader title={`${active.length} Members`} onBack={() => router.back()} />
+      <ScreenHeader title="People" onBack={() => router.back()} />
+      <PotSectionNav potId={id} current="people" />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         {pendingRequests.length > 0 && (
           <>
-            <Text style={[styles.sectionLabel, { color: colors.inkSoft }]}>PENDING</Text>
+            <Text style={[styles.sectionLabel, { color: colors.inkSoft }]}>JOIN REQUESTS</Text>
             <View style={[styles.list, { backgroundColor: colors.surface, borderColor: colors.line }]}>
               <Text style={[styles.pendingCount, { color: colors.ink }]}>
                 {pendingRequests.length} Join Request{pendingRequests.length !== 1 ? 's' : ''}
@@ -74,7 +76,7 @@ export default function MembersScreen() {
           </>
         )}
 
-        <Text style={[styles.sectionLabel, { color: colors.inkSoft }]}>ACTIVE</Text>
+        <Text style={[styles.sectionLabel, { color: colors.inkSoft }]}>ACTIVE MEMBERS</Text>
         <View style={[styles.list, { backgroundColor: colors.surface, borderColor: colors.line }]}>
           {active.map((m) => (
             <MemberRowWithMenu
@@ -122,7 +124,13 @@ export default function MembersScreen() {
               const result = await updateMember({
                 potId: id,
                 memberId: editing.id,
-                ...updates,
+                displayName: updates.displayName,
+                ...(editing.role === 'owner'
+                  ? {}
+                  : {
+                      role: updates.role === 'admin' ? 'admin' : 'member',
+                      accessLevel: updates.accessLevel,
+                    }),
               });
               if (!result.ok) {
                 showToast(
@@ -165,8 +173,10 @@ function MemberRowWithMenu({
     return <MemberRow member={member} balance={balance} contributed={contributed} onPress={onPress} />;
   }
   const items = [
-    { label: 'Edit role & access', onPress: onEdit },
-    ...(member.role !== 'admin' ? [{ label: 'Remove Member', onPress: onRemove, destructive: true as const }] : []),
+    { label: member.role === 'owner' ? 'Edit display name' : 'Edit role & access', onPress: onEdit },
+    ...(member.role !== 'admin' && member.role !== 'owner'
+      ? [{ label: 'Remove Member', onPress: onRemove, destructive: true as const }]
+      : []),
   ];
   return (
     <View style={styles.rowWithMenu}>
@@ -190,8 +200,9 @@ function EditMemberModal({
   onSave: (updates: { displayName: string; role: MemberRole; accessLevel: AccessLevel }) => Promise<void>;
 }) {
   const colors = usePottoColors();
+  const isOwnerMember = member.role === 'owner';
   const [name, setName] = useState(member.name);
-  const [role, setRole] = useState<MemberRole>(member.role);
+  const [role, setRole] = useState<MemberRole>(member.role === 'owner' ? 'owner' : member.role);
   const [accessLevel, setAccessLevel] = useState<AccessLevel>(member.accessLevel);
   const [saving, setSaving] = useState(false);
 
@@ -211,61 +222,78 @@ function EditMemberModal({
           />
 
           <Text style={[styles.fieldLabel, { color: colors.inkSoft }]}>Role</Text>
-          <View style={styles.optionRow}>
-            {(['member', 'admin'] as const).map((r) => (
-              <Pressable
-                key={r}
-                onPress={() => {
-                  setRole(r);
-                  if (r === 'admin') setAccessLevel('member');
-                }}
+          {isOwnerMember ? (
+            <>
+              <View
                 style={[
                   styles.option,
-                  {
-                    borderColor: colors.line,
-                    backgroundColor: role === r ? colors.ink : colors.surfaceSunk,
-                  },
+                  { borderColor: colors.line, backgroundColor: colors.surfaceSunk, opacity: 0.85 },
                 ]}>
-                <Text style={{ color: role === r ? '#fff' : colors.ink, fontWeight: '700', fontSize: 13, textTransform: 'capitalize' }}>
-                  {r}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+                <Text style={{ color: colors.ink, fontWeight: '700', fontSize: 13 }}>Owner</Text>
+              </View>
+              <Text style={[styles.helper, { color: colors.inkSoft }]}>Ownership cannot be transferred.</Text>
+            </>
+          ) : (
+            <View style={styles.optionRow}>
+              {(['member', 'admin'] as const).map((r) => (
+                <Pressable
+                  key={r}
+                  onPress={() => {
+                    setRole(r);
+                    if (r === 'admin') setAccessLevel('member');
+                  }}
+                  style={[
+                    styles.option,
+                    {
+                      borderColor: colors.line,
+                      backgroundColor: role === r ? colors.ink : colors.surfaceSunk,
+                    },
+                  ]}>
+                  <Text style={{ color: role === r ? '#fff' : colors.ink, fontWeight: '700', fontSize: 13, textTransform: 'capitalize' }}>
+                    {r}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
 
-          <Text style={[styles.fieldLabel, { color: colors.inkSoft }]}>Access</Text>
-          <View style={styles.optionRow}>
-            {(
-              [
-                { value: 'member' as const, label: 'Full member' },
-                { value: 'view_only' as const, label: 'View only' },
-              ] as const
-            ).map((opt) => (
-              <Pressable
-                key={opt.value}
-                disabled={role === 'admin'}
-                onPress={() => setAccessLevel(opt.value)}
-                style={[
-                  styles.option,
-                  {
-                    borderColor: colors.line,
-                    backgroundColor: (role === 'admin' ? 'member' : accessLevel) === opt.value ? colors.ink : colors.surfaceSunk,
-                    opacity: role === 'admin' ? 0.55 : 1,
-                  },
-                ]}>
-                <Text
-                  style={{
-                    color: (role === 'admin' ? 'member' : accessLevel) === opt.value ? '#fff' : colors.ink,
-                    fontWeight: '700',
-                    fontSize: 13,
-                  }}>
-                  {opt.label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-          {role === 'admin' ? (
-            <Text style={[styles.helper, { color: colors.inkSoft }]}>Admins always have full member access.</Text>
+          {!isOwnerMember ? (
+            <>
+              <Text style={[styles.fieldLabel, { color: colors.inkSoft }]}>Access</Text>
+              <View style={styles.optionRow}>
+                {(
+                  [
+                    { value: 'member' as const, label: 'Full member' },
+                    { value: 'view_only' as const, label: 'View only' },
+                  ] as const
+                ).map((opt) => (
+                  <Pressable
+                    key={opt.value}
+                    disabled={role === 'admin'}
+                    onPress={() => setAccessLevel(opt.value)}
+                    style={[
+                      styles.option,
+                      {
+                        borderColor: colors.line,
+                        backgroundColor: (role === 'admin' ? 'member' : accessLevel) === opt.value ? colors.ink : colors.surfaceSunk,
+                        opacity: role === 'admin' ? 0.55 : 1,
+                      },
+                    ]}>
+                    <Text
+                      style={{
+                        color: (role === 'admin' ? 'member' : accessLevel) === opt.value ? '#fff' : colors.ink,
+                        fontWeight: '700',
+                        fontSize: 13,
+                      }}>
+                      {opt.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+              {role === 'admin' ? (
+                <Text style={[styles.helper, { color: colors.inkSoft }]}>Admins always have full member access.</Text>
+              ) : null}
+            </>
           ) : null}
 
           <View style={{ height: 16 }} />
@@ -279,8 +307,8 @@ function EditMemberModal({
               try {
                 await onSave({
                   displayName: name.trim(),
-                  role,
-                  accessLevel: role === 'admin' ? 'member' : accessLevel,
+                  role: isOwnerMember ? 'owner' : role === 'admin' ? 'admin' : 'member',
+                  accessLevel: isOwnerMember || role === 'admin' ? 'member' : accessLevel,
                 });
               } finally {
                 setSaving(false);

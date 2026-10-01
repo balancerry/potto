@@ -13,12 +13,17 @@ export function isActiveMember(member: Member | undefined): member is Member {
   return !!member && member.status === 'active';
 }
 
+export function isOwner(member: Member | undefined): boolean {
+  return isActiveMember(member) && member.role === 'owner';
+}
+
+/** Owner and admin share management powers; only owner can delete the pot. */
 export function isAdmin(member: Member | undefined): boolean {
-  return isActiveMember(member) && member.role === 'admin';
+  return isActiveMember(member) && (member.role === 'owner' || member.role === 'admin');
 }
 
 export function isViewOnly(member: Member | undefined): boolean {
-  return isActiveMember(member) && member.role !== 'admin' && member.accessLevel === 'view_only';
+  return isActiveMember(member) && !isAdmin(member) && member.accessLevel === 'view_only';
 }
 
 /** Admin, or a regular (non-view-only) active member. */
@@ -26,12 +31,21 @@ function hasWriteAccess(member: Member | undefined): boolean {
   return isAdmin(member) || (isActiveMember(member) && member.accessLevel === 'member');
 }
 
-export function canAddMoney(member: Member | undefined): boolean {
-  return hasWriteAccess(member);
+/** Active pool manager for this pot. Separate from pot admin. */
+export function isPoolManager(member: Member | undefined, poolManagerMemberId?: string | null): boolean {
+  return isActiveMember(member) && !!poolManagerMemberId && member.id === poolManagerMemberId;
 }
 
-export function canAddExpense(member: Member | undefined): boolean {
-  return hasWriteAccess(member);
+export function canManagePoolMoney(member: Member | undefined, poolManagerMemberId?: string | null): boolean {
+  return isAdmin(member) || isPoolManager(member, poolManagerMemberId);
+}
+
+export function canAddMoney(member: Member | undefined, poolManagerMemberId?: string | null): boolean {
+  return hasWriteAccess(member) || isPoolManager(member, poolManagerMemberId);
+}
+
+export function canAddExpense(member: Member | undefined, poolManagerMemberId?: string | null): boolean {
+  return hasWriteAccess(member) || isPoolManager(member, poolManagerMemberId);
 }
 
 export function canSettle(member: Member | undefined): boolean {
@@ -54,13 +68,31 @@ export function canEditPot(member: Member | undefined): boolean {
   return isAdmin(member);
 }
 
+/**
+ * Pot categories are Pot configuration: owner/admin only. Pool manager,
+ * regular members and view-only members can select and view categories but not
+ * change them. Mirrors the pot-admin check in the category RPCs.
+ */
+export function canManageCategories(member: Member | undefined): boolean {
+  return isAdmin(member);
+}
+
 export function canArchivePot(member: Member | undefined): boolean {
   return isAdmin(member);
 }
 
+/** Permanent delete is owner-only — promoted admins cannot delete the pot. */
+export function canDeletePot(member: Member | undefined): boolean {
+  return isOwner(member);
+}
+
 /** Admin can edit/delete any transaction; a regular member only their own; view-only never. */
-export function canEditTransaction(member: Member | undefined, tx: Transaction): boolean {
-  if (isAdmin(member)) return true;
+export function canEditTransaction(
+  member: Member | undefined,
+  tx: Transaction,
+  poolManagerMemberId?: string | null,
+): boolean {
+  if (isAdmin(member) || isPoolManager(member, poolManagerMemberId)) return true;
   if (!hasWriteAccess(member) || !member) return false;
   return tx.createdBy === member.id;
 }
@@ -70,7 +102,7 @@ export function canDeleteTransaction(member: Member | undefined, tx: Transaction
 }
 
 /**
- * Commitments ("Upcoming Payments") permission rules (spec section 25).
+ * Commitments ("Planned Payments") permission rules (spec section 25).
  * Admin: create/edit/cancel/add-payments/view all. Member: create + add/link
  * their own payments if they'd otherwise be allowed to add an expense (same
  * write-access rule). View-only: view only, never write.

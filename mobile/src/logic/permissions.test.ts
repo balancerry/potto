@@ -5,6 +5,7 @@ import {
   canArchivePot,
   canCancelCommitment,
   canCreateCommitment,
+  canDeletePot,
   canDeleteTransaction,
   canEditCommitment,
   canEditPot,
@@ -14,6 +15,7 @@ import {
   canReviewJoinRequests,
   canSettle,
   isAdmin,
+  isOwner,
   isViewOnly,
 } from '@/logic/permissions';
 import type { Commitment, Member, Transaction } from '@/types/models';
@@ -61,8 +63,9 @@ function makeCommitment(overrides: Partial<Commitment> = {}): Commitment {
 
 describe('admin', () => {
   const admin = makeMember({ role: 'admin' });
-  it('can do everything', () => {
+  it('can do everything except delete the pot', () => {
     expect(isAdmin(admin)).toBe(true);
+    expect(isOwner(admin)).toBe(false);
     expect(canAddMoney(admin)).toBe(true);
     expect(canAddExpense(admin)).toBe(true);
     expect(canSettle(admin)).toBe(true);
@@ -71,6 +74,7 @@ describe('admin', () => {
     expect(canReviewJoinRequests(admin)).toBe(true);
     expect(canEditPot(admin)).toBe(true);
     expect(canArchivePot(admin)).toBe(true);
+    expect(canDeletePot(admin)).toBe(false);
   });
 
   it('can edit and delete any transaction, not just their own', () => {
@@ -85,6 +89,18 @@ describe('admin', () => {
     expect(canEditCommitment(admin, othersCommitment)).toBe(true);
     expect(canCancelCommitment(admin)).toBe(true);
     expect(canAddCommitmentPayment(admin)).toBe(true);
+  });
+});
+
+describe('owner', () => {
+  const owner = makeMember({ role: 'owner' });
+  it('has admin powers plus exclusive delete', () => {
+    expect(isOwner(owner)).toBe(true);
+    expect(isAdmin(owner)).toBe(true);
+    expect(canManageMembers(owner)).toBe(true);
+    expect(canEditPot(owner)).toBe(true);
+    expect(canArchivePot(owner)).toBe(true);
+    expect(canDeletePot(owner)).toBe(true);
   });
 });
 

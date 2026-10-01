@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import {
   addCommitmentPayment,
@@ -19,17 +19,22 @@ import {
   calculateCommitmentRemaining,
   deriveCommitmentStatus,
 } from '@/lib/core/logic/commitments';
-import { EXPENSE_CATEGORIES } from '@/lib/core/constants/categories';
 import { todayISO } from '@/lib/dates';
 import { formatMoney, toPaise, toRupees } from '@/lib/core/money';
+import { defaultAccountFor } from '@/lib/core/logic/pool-money';
 import type {
   Commitment,
   CommitmentPayment,
   Member,
   PaymentSource,
+  PoolAccount,
+  PotCategory,
   SplitMethod,
   Transaction,
 } from '@/lib/core/models';
+import { CategoryPicker } from '@/components/categories/category-picker';
+import { CancelLink, useWarnUnsaved } from '@/components/navigation/unsaved-changes';
+import { safePotReturn } from '@/lib/navigation/pot-trail';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -39,6 +44,9 @@ import { cn } from '@/lib/utils';
 export function AddExpenseForm({
   potId,
   members,
+  poolAccounts,
+  categories,
+  canManageCategories,
   defaultMemberId,
   editingTx,
   commitments,
@@ -48,6 +56,9 @@ export function AddExpenseForm({
 }: {
   potId: string;
   members: Member[];
+  poolAccounts: PoolAccount[];
+  categories: PotCategory[];
+  canManageCategories: boolean;
   defaultMemberId?: string;
   editingTx?: Transaction;
   commitments: Commitment[];
@@ -56,6 +67,13 @@ export function AddExpenseForm({
   linkCommitmentId?: string;
 }) {
   const router = useRouter();
+  const returnTo = safePotReturn(
+    potId,
+    useSearchParams().get('from'),
+    editingTx ? `/pots/${potId}/transactions/${editingTx.id}` : `/pots/${potId}/transactions`,
+  );
+  const [dirty, setDirty] = useState(false);
+  useWarnUnsaved(dirty);
   const active = members.filter((m) => m.status === 'active');
   const isEdit = !!editingTx;
 
@@ -70,10 +88,14 @@ export function AddExpenseForm({
     editingTx ? String(toRupees(editingTx.amount)) : '',
   );
   const [paidBy, setPaidBy] = useState(editingTx?.paidBy ?? defaultMemberId ?? active[0]?.id ?? '');
+  const activeAccounts = poolAccounts.filter((a) => a.active);
   const [paymentSource, setPaymentSource] = useState<PaymentSource>(
     editingTx?.paymentSource ?? 'pool',
   );
-  const [category, setCategory] = useState(editingTx?.category ?? '');
+  const [poolAccountId, setPoolAccountId] = useState(
+    editingTx?.poolAccountId ?? defaultAccountFor(activeAccounts, 'online')?.id ?? activeAccounts[0]?.id ?? '',
+  );
+  const [categoryId, setCategoryId] = useState<string | undefined>(editingTx?.categoryId);
   const [date, setDate] = useState(editingTx?.date ?? todayISO());
   const [note, setNote] = useState(editingTx?.note ?? '');
   const [participantIds, setParticipantIds] = useState<string[]>(
@@ -159,13 +181,23 @@ export function AddExpenseForm({
       return;
     }
 
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      toast.error("You're offline. Changes will not be saved until you're back online.");
+      return;
+    }
+    if (paymentSource === 'pool' && !poolAccountId) {
+      toast.error('Choose which pool account paid');
+      return;
+    }
+
     const payload = {
       description: description.trim(),
       amount: amountPaise,
-      paidBy,
+      paidBy: paymentSource === 'pool' ? (defaultMemberId ?? paidBy) : paidBy,
       paymentSource,
+      poolAccountId: paymentSource === 'pool' ? poolAccountId : undefined,
       date,
-      category: category || undefined,
+      categoryId,
       participants: participantIds,
       splitMethod,
       splits,
@@ -182,7 +214,8 @@ export function AddExpenseForm({
         return;
       }
       toast.success('Expense updated');
-      router.push(`/pots/${potId}/transactions/${editingTx!.id}`);
+      setDirty(false);
+      router.push(returnTo);
       router.refresh();
       return;
     }
@@ -204,6 +237,7 @@ export function AddExpenseForm({
         return;
       }
       toast.success('Payment recorded');
+      setDirty(false);
       router.push(`/pots/${potId}/commitments/${selectedCommitmentId}`);
       router.refresh();
       return;
@@ -213,19 +247,19 @@ export function AddExpenseForm({
       const total = Number(newCommitmentTotal);
       if (!newCommitmentTitle.trim()) {
         setLoading(false);
-        toast.error('Enter an upcoming payment title');
+        toast.error('Enter an planned payment title');
         return;
       }
       if (!Number.isFinite(total) || total <= 0) {
         setLoading(false);
-        toast.error('Enter a valid total for the upcoming payment');
+        toast.error('Enter a valid total for the planned payment');
         return;
       }
       const result = await createCommitmentWithPayment(potId, {
         commitment: {
           title: newCommitmentTitle.trim(),
           totalAmount: toPaise(total),
-          category: category || undefined,
+          categoryId,
         },
         payment: payload,
       });
@@ -234,7 +268,8 @@ export function AddExpenseForm({
         toast.error(result.error);
         return;
       }
-      toast.success('Expense and upcoming payment created');
+      toast.success('Expense and planned payment created');
+      setDirty(false);
       router.push(`/pots/${potId}/commitments/${result.data.commitmentId}`);
       router.refresh();
       return;
@@ -247,12 +282,13 @@ export function AddExpenseForm({
       return;
     }
     toast.success('Expense added');
-    router.push(`/pots/${potId}/transactions/${result.data.transactionId}`);
+    setDirty(false);
+    router.push(returnTo);
     router.refresh();
   }
 
   return (
-    <form onSubmit={onSubmit} className="mx-auto max-w-xl space-y-5">
+    <form onSubmit={onSubmit} onChange={() => setDirty(true)} className="mx-auto max-w-xl space-y-5">
       <div>
         <Label htmlFor="description">Description *</Label>
         <Input
@@ -281,7 +317,44 @@ export function AddExpenseForm({
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div>
+        <Label>Who paid?</Label>
+        <div className="mt-1 flex gap-2">
+          {(['pool', 'personal'] as const).map((src) => (
+            <button
+              key={src}
+              type="button"
+              onClick={() => setPaymentSource(src)}
+              className={cn(
+                'h-11 flex-1 rounded-[var(--radius-md)] border text-sm font-medium',
+                paymentSource === src
+                  ? 'border-accent bg-accent text-white'
+                  : 'border-line bg-surface text-ink',
+              )}
+            >
+              {src === 'pool' ? 'Pool' : 'Member'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {paymentSource === 'pool' ? (
+        <div>
+          <Label htmlFor="paidFrom">Paid from</Label>
+          <select
+            id="paidFrom"
+            className="flex h-11 w-full rounded-[var(--radius-md)] border border-line bg-surface px-3 text-sm"
+            value={poolAccountId}
+            onChange={(e) => setPoolAccountId(e.target.value)}
+          >
+            {activeAccounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : (
         <div>
           <Label htmlFor="paidBy">Paid by</Label>
           <select
@@ -297,45 +370,20 @@ export function AddExpenseForm({
             ))}
           </select>
         </div>
-        <div>
-          <Label>Payment source</Label>
-          <div className="mt-1 flex gap-2">
-            {(['pool', 'personal'] as const).map((src) => (
-              <button
-                key={src}
-                type="button"
-                onClick={() => setPaymentSource(src)}
-                className={cn(
-                  'h-11 flex-1 rounded-[var(--radius-md)] border text-sm font-medium capitalize',
-                  paymentSource === src
-                    ? 'border-accent bg-accent text-white'
-                    : 'border-line bg-surface text-ink',
-                )}
-              >
-                {src}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+      )}
 
       <div>
         <Label>Category</Label>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {EXPENSE_CATEGORIES.map((c) => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => setCategory(category === c ? '' : c)}
-              className={cn(
-                'rounded-full px-3 py-1 text-xs font-medium',
-                category === c ? 'bg-accent text-white' : 'bg-surface-sunk text-ink-soft',
-              )}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
+        <CategoryPicker
+          potId={potId}
+          categories={categories}
+          value={categoryId}
+          onChange={(next) => {
+            setCategoryId(next);
+            setDirty(true);
+          }}
+          canManage={canManageCategories}
+        />
       </div>
 
       <div>
@@ -416,7 +464,7 @@ export function AddExpenseForm({
 
       {!isEdit ? (
         <div className="space-y-3 rounded-[var(--radius-md)] border border-line p-4">
-          <Label>Link to upcoming payment</Label>
+          <Label>Link to planned payment</Label>
           <div className="flex flex-wrap gap-2">
             {(['none', 'link', 'create'] as const).map((m) => (
               <button
@@ -434,7 +482,7 @@ export function AddExpenseForm({
           </div>
           {commitmentMode === 'link' ? (
             linkable.length === 0 ? (
-              <p className="text-sm text-ink-soft">No open upcoming payments to link.</p>
+              <p className="text-sm text-ink-soft">No open planned payments to link.</p>
             ) : (
               <select
                 className="flex h-11 w-full rounded-[var(--radius-md)] border border-line bg-surface px-3 text-sm"
@@ -482,9 +530,14 @@ export function AddExpenseForm({
         <Textarea id="note" value={note} onChange={(e) => setNote(e.target.value)} rows={2} />
       </div>
 
-      <Button type="submit" disabled={loading}>
-        {loading ? 'Saving…' : isEdit ? 'Update expense' : 'Add expense'}
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button type="submit" disabled={loading}>
+          {loading ? 'Saving…' : isEdit ? 'Update expense' : 'Add expense'}
+        </Button>
+        <CancelLink href={returnTo} dirty={dirty}>
+          Cancel
+        </CancelLink>
+      </div>
     </form>
   );
 }

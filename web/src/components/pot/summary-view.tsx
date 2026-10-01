@@ -69,7 +69,7 @@ export function SummaryView({ vm }: { vm: PotSummaryViewModel }) {
           ) : (
             <ul className="space-y-2 text-sm">
               {vm.expenses.categories.map((c) => (
-                <li key={c.category} className="flex justify-between gap-4">
+                <li key={c.categoryId ?? 'uncategorized'} className="flex justify-between gap-4">
                   <span>
                     {c.category} <span className="text-ink-soft">({c.percentage}%)</span>
                   </span>
@@ -80,7 +80,7 @@ export function SummaryView({ vm }: { vm: PotSummaryViewModel }) {
           )}
         </Section>
 
-        <Section title="Upcoming payments">
+        <Section title="Planned payments">
           {vm.upcoming.items.length === 0 ? (
             <p className="text-sm text-ink-soft">None remaining.</p>
           ) : (
@@ -116,7 +116,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-[var(--radius-md)] bg-surface-sunk p-4">
       <p className="text-xs uppercase tracking-wide text-ink-soft">{label}</p>
-      <p className="mt-1 font-display text-2xl font-semibold">{value}</p>
+      <p className="mt-1 font-money text-2xl font-bold">{value}</p>
     </div>
   );
 }
@@ -124,7 +124,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section>
-      <h4 className="mb-2 font-display text-lg font-semibold text-ink">{title}</h4>
+      <h4 className="mb-2 font-sans text-lg font-semibold text-ink">{title}</h4>
       {children}
     </section>
   );

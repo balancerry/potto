@@ -1,7 +1,8 @@
-import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { calculateExpenseShares } from '@/logic/accounting';
 import { calculateCommitmentPaid, validateCommitmentPaymentAmount, validateCommitmentTotalAmount } from '@/logic/commitments';
+import { validateCategoryInput, validateExpenseCategory, validateRestoreCategory } from '@/logic/categories';
 import { generateInviteCode, generateJoinCode } from '@/logic/invites';
 import * as JoinFlow from '@/logic/join-requests';
 import {
@@ -11,21 +12,27 @@ import {
   canArchivePot,
   canCancelCommitment,
   canCreateCommitment,
+  canDeletePot,
   canDeleteTransaction,
   canEditCommitment,
   canEditPot,
   canEditTransaction,
+  canManageCategories,
   canManageMembers,
+  canManagePoolMoney,
   canReviewJoinRequests,
   canSettle,
 } from '@/logic/permissions';
+import { supabase } from '@/lib/supabase';
 import { archivePotRemote, createPotRemote, deletePotRemote, fetchWorkspace } from '@/lib/api/workspace';
 import {
   addCommitmentPaymentRemote,
   addExpenseRemote,
   addMoneyRemote,
+  assignPoolManagerRemote,
   approveJoinRequestRemote,
   cancelCommitmentRemote,
+  createCategoryRemote,
   createCommitmentRemote,
   deleteTransactionRemote,
   listInviteCodesRemote,
@@ -35,15 +42,19 @@ import {
   regenerateJoinCodeRemote,
   rejectJoinRequestRemote,
   removeMemberRemote,
+  reorderCategoriesRemote,
   requestToJoinRemote,
+  setCategoryActiveRemote,
   setInviteEnabledRemote,
   setJoinEnabledRemote,
+  updateCategoryRemote,
   updateCommitmentRemote,
   updateContributionRemote,
   updateExpenseRemote,
   updatePotDetailsRemote,
   updatePotMemberRemote,
   updateSettlementRemote,
+  transferPoolMoneyRemote,
 } from '@/lib/api/mutations';
 import type {
   AccessLevel,
@@ -52,7 +63,9 @@ import type {
   JoinRequest,
   Member,
   PaymentMethod,
+  PoolAccount,
   Pot,
+  PotCategory,
   PottoUser,
   Split,
   SplitMethod,
@@ -67,6 +80,10 @@ interface PottoState {
   joinRequests: Record<string, JoinRequest[]>;
   commitments: Record<string, Commitment[]>;
   commitmentPayments: Record<string, CommitmentPayment[]>;
+  poolAccounts: Record<string, PoolAccount[]>;
+  poolManagerMemberIds: Record<string, string | null>;
+  /** Pot-specific expense categories, active and archived, in sort order. */
+  categories: Record<string, PotCategory[]>;
   /** True while first remote hydrate is in flight. */
   syncing: boolean;
   /** True after a successful remote hydrate (or explicit clear). */
@@ -74,6 +91,7 @@ interface PottoState {
 }
 
 const EMPTY_USER: PottoUser = { id: '', name: '' };
+const EMPTY_CATEGORIES: PotCategory[] = [];
 
 function emptyState(): PottoState {
   return {
@@ -84,6 +102,9 @@ function emptyState(): PottoState {
     joinRequests: {},
     commitments: {},
     commitmentPayments: {},
+    poolAccounts: {},
+    poolManagerMemberIds: {},
+    categories: {},
     syncing: false,
     ready: false,
   };
@@ -106,9 +127,6 @@ function resolveCurrentMember(pot: Pot | undefined, currentUser: PottoUser): Mem
 export interface CreatePotInput {
   name: string;
   description?: string;
-  startingContribution?: number; // paise
-  /** Optional per-member target contribution (paise); see Pot.expectedContributionPerMember. */
-  expectedContributionPerMember?: number;
   memberNames: string[]; // additional members besides the creator
 }
 
@@ -121,6 +139,8 @@ export interface AddMoneyInput {
   potId: string;
   date: string;
   note?: string;
+  receivedVia: 'online' | 'cash';
+  poolAccountId: string;
   entries: ContributionEntry[];
 }
 
@@ -129,6 +149,8 @@ export interface UpdateContributionInput {
   amount: number; // paise
   date: string;
   note?: string;
+  receivedVia: 'online' | 'cash';
+  poolAccountId: string;
 }
 
 export interface AddExpenseInput {
@@ -137,8 +159,9 @@ export interface AddExpenseInput {
   amount: number; // paise
   paidBy: string; // memberId
   paymentSource: 'pool' | 'personal';
+  poolAccountId?: string;
   date: string;
-  category?: string;
+  categoryId?: string;
   participants: string[];
   splitMethod: SplitMethod;
   splits: Split[];
@@ -167,7 +190,7 @@ export interface UpdateSettlementInput {
 }
 
 // ---------------------------------------------------------------------
-// Commitments ("Upcoming Payments") — see src/logic/commitments.ts and
+// Commitments ("Planned payments") — see src/logic/commitments.ts and
 // src/mvp/Potto_Upcoming_Payments_Commitments_Spec.md.
 // ---------------------------------------------------------------------
 
@@ -175,7 +198,7 @@ export interface CreateCommitmentInput {
   potId: string;
   title: string;
   vendorName?: string;
-  category?: string;
+  categoryId?: string;
   description?: string;
   totalAmount: number; // paise
   dueDate?: string; // ISO date, optional
@@ -184,6 +207,7 @@ export type UpdateCommitmentInput = Omit<CreateCommitmentInput, 'potId'>;
 
 export type CreateCommitmentResult = { ok: true; commitmentId: string } | { ok: false; reason: string };
 export type CommitmentActionResult = { ok: true } | { ok: false; reason: string };
+export type CategoryActionResult = { ok: true } | { ok: false; reason: string };
 
 /** The expense-shaped part of adding a payment — identical fields to AddExpenseInput minus potId, since a Commitment payment IS a normal expense transaction. */
 export interface CommitmentPaymentInput {
@@ -191,8 +215,9 @@ export interface CommitmentPaymentInput {
   amount: number; // paise
   paidBy: string; // memberId
   paymentSource: 'pool' | 'personal';
+  poolAccountId?: string;
   date: string;
-  category?: string;
+  categoryId?: string;
   participants: string[];
   splitMethod: SplitMethod;
   splits: Split[];
@@ -251,6 +276,29 @@ interface PottoContextValue {
   state: PottoState;
   getPot: (potId: string) => Pot | undefined;
   getTransactions: (potId: string) => Transaction[];
+  getPoolAccounts: (potId: string) => PoolAccount[];
+  getPoolManagerMemberId: (potId: string) => string | null;
+  /** All categories of the Pot (active and archived), in sort order. */
+  getCategories: (potId: string) => PotCategory[];
+  createCategory: (input: { potId: string; name: string; icon: string; color: string }) => Promise<CategoryActionResult>;
+  updateCategory: (
+    potId: string,
+    categoryId: string,
+    input: { name: string; icon: string; color: string },
+  ) => Promise<CategoryActionResult>;
+  /** Archive (`false`) or restore (`true`). Categories are never deleted. */
+  setCategoryActive: (potId: string, categoryId: string, active: boolean) => Promise<CategoryActionResult>;
+  /** Persist a new order for the given (active) category ids. */
+  reorderCategories: (potId: string, orderedIds: string[]) => Promise<CategoryActionResult>;
+  transferPoolMoney: (input: {
+    potId: string;
+    fromAccountId: string;
+    toAccountId: string;
+    amount: number;
+    date: string;
+    note?: string;
+  }) => Promise<void>;
+  assignPoolManager: (potId: string, memberId: string) => Promise<void>;
   getCurrentMember: (potId: string) => Member | undefined;
   getJoinRequests: (potId: string) => JoinRequest[];
   getJoinRequest: (potId: string, joinRequestId: string) => JoinRequest | undefined;
@@ -306,6 +354,12 @@ export function PottoProvider({ children }: { children: React.ReactNode }) {
 
   const getPot = useCallback((potId: string) => state.pots[potId], [state.pots]);
   const getTransactions = useCallback((potId: string) => state.transactions[potId] ?? [], [state.transactions]);
+  const getPoolAccounts = useCallback((potId: string) => state.poolAccounts[potId] ?? [], [state.poolAccounts]);
+  const getPoolManagerMemberId = useCallback(
+    (potId: string) => state.poolManagerMemberIds[potId] ?? null,
+    [state.poolManagerMemberIds],
+  );
+  const getCategories = useCallback((potId: string) => state.categories[potId] ?? EMPTY_CATEGORIES, [state.categories]);
   const getCurrentMember = useCallback(
     (potId: string) => resolveCurrentMember(state.pots[potId], state.currentUser),
     [state.pots, state.currentUser],
@@ -356,14 +410,37 @@ export function PottoProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  useEffect(() => {
+    const potIds = Object.keys(state.pots);
+    if (!state.currentUser.id || potIds.length === 0) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const refresh = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        void reloadWorkspace().catch(() => undefined);
+      }, 200);
+    };
+    const channel = supabase.channel(`workspace:${state.currentUser.id}`);
+    for (const potId of potIds) {
+      channel.on('postgres_changes', { event: '*', schema: 'public', table: 'transactions', filter: `pot_id=eq.${potId}` }, refresh);
+      channel.on('postgres_changes', { event: '*', schema: 'public', table: 'pool_accounts', filter: `pot_id=eq.${potId}` }, refresh);
+      channel.on('postgres_changes', { event: '*', schema: 'public', table: 'pot_pool_managers', filter: `pot_id=eq.${potId}` }, refresh);
+      channel.on('postgres_changes', { event: '*', schema: 'public', table: 'pot_members', filter: `pot_id=eq.${potId}` }, refresh);
+      channel.on('postgres_changes', { event: '*', schema: 'public', table: 'pot_categories', filter: `pot_id=eq.${potId}` }, refresh);
+    }
+    channel.subscribe();
+    return () => {
+      if (timer) clearTimeout(timer);
+      void supabase.removeChannel(channel);
+    };
+  }, [state.currentUser.id, state.pots, reloadWorkspace]);
+
   const createPot = useCallback(
     async (input: CreatePotInput) => {
       const potId = await createPotRemote({
         name: input.name,
         description: input.description,
         memberNames: input.memberNames,
-        startingContributionPaise: input.startingContribution,
-        expectedContributionPaise: input.expectedContributionPerMember,
       });
       await reloadWorkspace();
       return potId;
@@ -373,6 +450,10 @@ export function PottoProvider({ children }: { children: React.ReactNode }) {
 
   const deletePot = useCallback(
     async (potId: string) => {
+      const pot = stateRef.current.pots[potId];
+      if (!pot) throw new Error('Pot not found');
+      const me = resolveCurrentMember(pot, stateRef.current.currentUser);
+      if (!canDeletePot(me)) throw new Error('Only the pot owner can delete this pot');
       await deletePotRemote(potId);
       setState((prev) => {
         const pots = { ...prev.pots };
@@ -396,17 +477,20 @@ export function PottoProvider({ children }: { children: React.ReactNode }) {
       const pot = state.pots[input.potId];
       if (!pot) throw new Error('Pot not found');
       const me = resolveCurrentMember(pot, state.currentUser);
-      if (!canAddMoney(me) || !me) throw new Error('Not authorized');
+      const managerId = state.poolManagerMemberIds[input.potId];
+      if (!canAddMoney(me, managerId) || !me) throw new Error('Not authorized');
       await addMoneyRemote({
         potId: input.potId,
         date: input.date,
         note: input.note,
+        receivedVia: input.receivedVia,
+        poolAccountId: input.poolAccountId,
         entries: input.entries,
         createdByMemberId: me.id,
       });
       await reloadWorkspace();
     },
-    [state.pots, state.currentUser, reloadWorkspace],
+    [state.pots, state.poolManagerMemberIds, state.currentUser, reloadWorkspace],
   );
 
   const addExpense = useCallback(
@@ -414,21 +498,54 @@ export function PottoProvider({ children }: { children: React.ReactNode }) {
       const pot = state.pots[input.potId];
       if (!pot) throw new Error('Pot not found');
       const me = resolveCurrentMember(pot, state.currentUser);
-      if (!canAddExpense(me) || !me) throw new Error('Not authorized');
+      if (!canAddExpense(me, state.poolManagerMemberIds[input.potId]) || !me) throw new Error('Not authorized');
+      const categoryCheck = validateExpenseCategory({
+        potId: input.potId,
+        categoryId: input.categoryId,
+        categories: state.categories[input.potId] ?? [],
+      });
+      if (!categoryCheck.valid) throw new Error(categoryCheck.error);
       await addExpenseRemote({
         potId: input.potId,
         description: input.description,
         amount: input.amount,
         paidBy: input.paidBy,
         paymentSource: input.paymentSource,
+        poolAccountId: input.poolAccountId,
         date: input.date,
-        category: input.category,
+        categoryId: input.categoryId,
         note: input.note,
         participants: input.participants,
         splitMethod: input.splitMethod,
         splits: input.splits,
         createdByMemberId: me.id,
       });
+      await reloadWorkspace();
+    },
+    [state.pots, state.poolManagerMemberIds, state.currentUser, state.categories, reloadWorkspace],
+  );
+
+  const transferPoolMoney = useCallback(
+    async (input: { potId: string; fromAccountId: string; toAccountId: string; amount: number; date: string; note?: string }) => {
+      const pot = state.pots[input.potId];
+      if (!pot) throw new Error('Pot not found');
+      const me = resolveCurrentMember(pot, state.currentUser);
+      if (!canManagePoolMoney(me, state.poolManagerMemberIds[input.potId])) {
+        throw new Error('Only the pool manager or a pot admin can transfer pool money');
+      }
+      await transferPoolMoneyRemote(input);
+      await reloadWorkspace();
+    },
+    [state.pots, state.poolManagerMemberIds, state.currentUser, reloadWorkspace],
+  );
+
+  const assignPoolManager = useCallback(
+    async (potId: string, memberId: string) => {
+      const pot = state.pots[potId];
+      if (!pot) throw new Error('Pot not found');
+      const me = resolveCurrentMember(pot, state.currentUser);
+      if (!canEditPot(me)) throw new Error('Only a pot admin can change the pool manager');
+      await assignPoolManagerRemote(potId, memberId);
       await reloadWorkspace();
     },
     [state.pots, state.currentUser, reloadWorkspace],
@@ -464,7 +581,7 @@ export function PottoProvider({ children }: { children: React.ReactNode }) {
       const tx = existing.find((t) => t.id === txId);
       if (!pot || !tx) throw new Error('Contribution not found');
       const me = resolveCurrentMember(pot, stateRef.current.currentUser);
-      if (!canEditTransaction(me, tx)) throw new Error('Not authorized');
+      if (!canEditTransaction(me, tx, stateRef.current.poolManagerMemberIds[potId])) throw new Error('Not authorized');
       await updateContributionRemote(potId, txId, updates);
       await reloadWorkspace();
     },
@@ -478,11 +595,75 @@ export function PottoProvider({ children }: { children: React.ReactNode }) {
       const tx = existing.find((t) => t.id === txId);
       if (!pot || !tx) throw new Error('Expense not found');
       const me = resolveCurrentMember(pot, stateRef.current.currentUser);
-      if (!canEditTransaction(me, tx)) throw new Error('Not authorized');
+      if (!canEditTransaction(me, tx, stateRef.current.poolManagerMemberIds[potId])) throw new Error('Not authorized');
+      const categoryCheck = validateExpenseCategory({
+        potId,
+        categoryId: updates.categoryId,
+        categories: stateRef.current.categories[potId] ?? [],
+        currentCategoryId: tx.categoryId,
+      });
+      if (!categoryCheck.valid) throw new Error(categoryCheck.error);
       await updateExpenseRemote(potId, txId, updates);
       await reloadWorkspace();
     },
     [reloadWorkspace],
+  );
+
+  // -------------------------------------------------------------------------
+  // Pot categories (owner/admin only). The database RPCs are the real gate;
+  // these checks fail fast with the same rules and clearer messages.
+  // -------------------------------------------------------------------------
+  const runCategoryAction = useCallback(
+    async (potId: string, action: () => Promise<void>): Promise<CategoryActionResult> => {
+      const pot = stateRef.current.pots[potId];
+      if (!pot) return { ok: false, reason: 'Pot not found' };
+      const me = resolveCurrentMember(pot, stateRef.current.currentUser);
+      if (!canManageCategories(me)) return { ok: false, reason: 'Only a pot admin can manage categories' };
+      try {
+        await action();
+        await reloadWorkspace();
+        return { ok: true };
+      } catch (err) {
+        return { ok: false, reason: err instanceof Error ? err.message : 'Could not update categories' };
+      }
+    },
+    [reloadWorkspace],
+  );
+
+  const createCategory = useCallback(
+    async (input: { potId: string; name: string; icon: string; color: string }) => {
+      const check = validateCategoryInput(input, stateRef.current.categories[input.potId] ?? []);
+      if (!check.valid) return { ok: false, reason: check.error } as const;
+      return runCategoryAction(input.potId, async () => {
+        await createCategoryRemote({ potId: input.potId, ...check.value });
+      });
+    },
+    [runCategoryAction],
+  );
+
+  const updateCategory = useCallback(
+    async (potId: string, categoryId: string, input: { name: string; icon: string; color: string }) => {
+      const check = validateCategoryInput(input, stateRef.current.categories[potId] ?? [], categoryId);
+      if (!check.valid) return { ok: false, reason: check.error } as const;
+      return runCategoryAction(potId, () => updateCategoryRemote(categoryId, check.value));
+    },
+    [runCategoryAction],
+  );
+
+  const setCategoryActive = useCallback(
+    async (potId: string, categoryId: string, active: boolean) => {
+      if (active) {
+        const check = validateRestoreCategory(stateRef.current.categories[potId] ?? []);
+        if (!check.valid) return { ok: false, reason: check.error ?? 'Could not restore' } as const;
+      }
+      return runCategoryAction(potId, () => setCategoryActiveRemote(categoryId, active));
+    },
+    [runCategoryAction],
+  );
+
+  const reorderCategories = useCallback(
+    async (potId: string, orderedIds: string[]) => runCategoryAction(potId, () => reorderCategoriesRemote(potId, orderedIds)),
+    [runCategoryAction],
   );
 
   const updateSettlement = useCallback(
@@ -538,7 +719,7 @@ export function PottoProvider({ children }: { children: React.ReactNode }) {
           potId: input.potId,
           title: input.title.trim(),
           vendorName: input.vendorName?.trim() || undefined,
-          category: input.category,
+          categoryId: input.categoryId,
           description: input.description?.trim() || undefined,
           totalAmount: input.totalAmount,
           dueDate: input.dueDate,
@@ -560,7 +741,7 @@ export function PottoProvider({ children }: { children: React.ReactNode }) {
     ): Promise<CommitmentActionResult> => {
       const pot = stateRef.current.pots[potId];
       const commitment = (stateRef.current.commitments[potId] ?? []).find((c) => c.id === commitmentId);
-      if (!pot || !commitment) return { ok: false, reason: 'Upcoming payment not found' };
+      if (!pot || !commitment) return { ok: false, reason: 'Planned payment not found' };
       const me = resolveCurrentMember(pot, stateRef.current.currentUser);
       if (!canEditCommitment(me, commitment)) return { ok: false, reason: 'Not authorized' };
       if (!updates.title.trim()) return { ok: false, reason: 'Enter a title' };
@@ -570,7 +751,7 @@ export function PottoProvider({ children }: { children: React.ReactNode }) {
         await updateCommitmentRemote(commitmentId, {
           title: updates.title.trim(),
           vendorName: updates.vendorName?.trim() || undefined,
-          category: updates.category,
+          categoryId: updates.categoryId,
           description: updates.description?.trim() || undefined,
           totalAmount: updates.totalAmount,
           dueDate: updates.dueDate,
@@ -588,7 +769,7 @@ export function PottoProvider({ children }: { children: React.ReactNode }) {
     async (potId: string, commitmentId: string): Promise<CommitmentActionResult> => {
       const pot = stateRef.current.pots[potId];
       const commitment = (stateRef.current.commitments[potId] ?? []).find((c) => c.id === commitmentId);
-      if (!pot || !commitment) return { ok: false, reason: 'Upcoming payment not found' };
+      if (!pot || !commitment) return { ok: false, reason: 'Planned payment not found' };
       const me = resolveCurrentMember(pot, stateRef.current.currentUser);
       if (!canCancelCommitment(me)) return { ok: false, reason: 'Not authorized' };
       try {
@@ -609,12 +790,12 @@ export function PottoProvider({ children }: { children: React.ReactNode }) {
       const me = resolveCurrentMember(pot, stateRef.current.currentUser);
       if (!canAddCommitmentPayment(me) || !me) return { ok: false, reason: 'Not authorized' };
       const commitment = (stateRef.current.commitments[input.potId] ?? []).find((c) => c.id === input.commitmentId);
-      if (!commitment) return { ok: false, reason: 'Upcoming payment not found' };
+      if (!commitment) return { ok: false, reason: 'Planned payment not found' };
       if (commitment.potId !== input.potId) {
-        return { ok: false, reason: 'This Upcoming Payment does not belong to this Pot' };
+        return { ok: false, reason: 'This Planned payment does not belong to this Pot' };
       }
       if (commitment.status === 'cancelled') {
-        return { ok: false, reason: 'This Upcoming Payment has been cancelled' };
+        return { ok: false, reason: 'This Planned payment has been cancelled' };
       }
       const txs = stateRef.current.transactions[input.potId] ?? [];
       const payments = stateRef.current.commitmentPayments[input.potId] ?? [];
@@ -631,8 +812,9 @@ export function PottoProvider({ children }: { children: React.ReactNode }) {
           amount: input.amount,
           paidBy: input.paidBy,
           paymentSource: input.paymentSource,
+          poolAccountId: input.poolAccountId,
           date: input.date,
-          category: input.category,
+          categoryId: input.categoryId,
           note: input.note,
           participants: input.participants,
           splitMethod: input.splitMethod,
@@ -810,6 +992,10 @@ export function PottoProvider({ children }: { children: React.ReactNode }) {
       const me = resolveCurrentMember(pot, stateRef.current.currentUser);
       if (!canManageMembers(me) || !me) return { ok: false, reason: 'not_authorized' };
       if (me.id === memberId) return { ok: false, reason: 'cannot_remove_self' };
+      const target = pot.members.find((m) => m.id === memberId);
+      if (target?.role === 'owner' || target?.role === 'admin') {
+        return { ok: false, reason: 'cannot_remove_admin' };
+      }
       try {
         await removeMemberRemote(potId, memberId);
         await reloadWorkspace();
@@ -944,6 +1130,15 @@ export function PottoProvider({ children }: { children: React.ReactNode }) {
       state,
       getPot,
       getTransactions,
+      getPoolAccounts,
+      getPoolManagerMemberId,
+      transferPoolMoney,
+      assignPoolManager,
+      getCategories,
+      createCategory,
+      updateCategory,
+      setCategoryActive,
+      reorderCategories,
       getCurrentMember,
       getJoinRequests,
       getJoinRequest,
@@ -984,6 +1179,15 @@ export function PottoProvider({ children }: { children: React.ReactNode }) {
       state,
       getPot,
       getTransactions,
+      getPoolAccounts,
+      getPoolManagerMemberId,
+      transferPoolMoney,
+      assignPoolManager,
+      getCategories,
+      createCategory,
+      updateCategory,
+      setCategoryActive,
+      reorderCategories,
       getCurrentMember,
       getJoinRequests,
       getJoinRequest,

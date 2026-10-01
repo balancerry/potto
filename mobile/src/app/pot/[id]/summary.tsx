@@ -28,7 +28,7 @@ import { formatDateFull, formatMoney } from '@/utils/money';
 export default function PotSummaryScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = usePottoColors();
-  const { getPot, getTransactions, getCommitments, getCommitmentPayments } = usePottoStore();
+  const { getPot, getTransactions, getCommitments, getCommitmentPayments, getCategories } = usePottoStore();
   const { showToast } = useToast();
   const [exporting, setExporting] = useState(false);
 
@@ -36,10 +36,11 @@ export default function PotSummaryScreen() {
   const txs = getTransactions(id);
   const commitments = getCommitments(id);
   const commitmentPayments = commitments.flatMap((c) => getCommitmentPayments(id, c.id));
+  const categories = getCategories(id);
 
   const vm = useMemo(
-    () => (pot ? buildPotSummaryViewModel(pot, txs, commitments, commitmentPayments) : null),
-    [pot, txs, commitments, commitmentPayments],
+    () => (pot ? buildPotSummaryViewModel(pot, txs, commitments, commitmentPayments, categories) : null),
+    [pot, txs, commitments, commitmentPayments, categories],
   );
 
   if (!pot || !vm) {
@@ -60,7 +61,7 @@ export default function PotSummaryScreen() {
     try {
       // Rebuild with a fresh timestamp right before export so the PDF reflects
       // the exact moment of generation, not when the screen first mounted.
-      const freshVm = buildPotSummaryViewModel(pot, txs, commitments, commitmentPayments);
+      const freshVm = buildPotSummaryViewModel(pot, txs, commitments, commitmentPayments, categories);
       const html = buildPotSummaryHtml(freshVm);
       const { uri } = await Print.printToFileAsync({
         html,
@@ -154,7 +155,7 @@ export default function PotSummaryScreen() {
         ) : (
           <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.line }]}>
             {vm.expenses.categories.map((c, i) => (
-              <View key={c.category} style={[styles.simpleRow, i > 0 && { borderTopWidth: 1, borderTopColor: colors.line }]}>
+              <View key={c.categoryId ?? "none"} style={[styles.simpleRow, i > 0 && { borderTopWidth: 1, borderTopColor: colors.line }]}>
                 <Text style={{ color: colors.ink, fontSize: 14.5, fontWeight: '600' }}>{c.category}</Text>
                 <Text style={{ color: colors.ink, fontSize: 14.5, fontWeight: '700' }}>{formatMoney(c.amount)}</Text>
               </View>
@@ -164,9 +165,9 @@ export default function PotSummaryScreen() {
 
         <Divider colors={colors} />
 
-        <SectionLabel colors={colors} label="UPCOMING PAYMENTS" />
+        <SectionLabel colors={colors} label="PLANNED PAYMENTS" />
         {vm.upcoming.items.length === 0 ? (
-          <Text style={[styles.emptyNote, { color: colors.inkSoft }]}>No upcoming payments.</Text>
+          <Text style={[styles.emptyNote, { color: colors.inkSoft }]}>No planned payments.</Text>
         ) : (
           <>
             <Text style={[styles.sectionTotal, { color: colors.ink }]}>{formatMoney(vm.upcoming.totalRemaining)} remaining</Text>
