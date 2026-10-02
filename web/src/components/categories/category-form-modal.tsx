@@ -62,7 +62,7 @@ export function CategoryFormModal({
   const fg = categoryColorHex(color);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onMouseDown={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-scrim p-0 sm:items-center sm:p-4" onMouseDown={onClose}>
       <form
         role="dialog"
         aria-modal="true"

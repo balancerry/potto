@@ -324,7 +324,7 @@ export function AddExpenseForm({
               className={cn(
                 'h-11 flex-1 rounded-[var(--radius-md)] border text-sm font-medium',
                 paymentSource === src
-                  ? 'border-accent bg-accent text-white'
+                  ? 'border-accent bg-accent text-on-accent'
                   : 'border-line bg-surface text-ink',
               )}
             >
@@ -394,7 +394,7 @@ export function AddExpenseForm({
                 onClick={() => toggleParticipant(m.id)}
                 className={cn(
                   'rounded-full px-3 py-1 text-xs font-medium',
-                  on ? 'bg-accent text-white' : 'bg-surface-sunk text-ink-soft',
+                  on ? 'bg-accent text-on-accent' : 'bg-surface-sunk text-ink-soft',
                 )}
               >
                 {m.name}
@@ -414,7 +414,7 @@ export function AddExpenseForm({
               onClick={() => setSplitMethod(m)}
               className={cn(
                 'rounded-full px-3 py-1 text-xs font-medium capitalize',
-                splitMethod === m ? 'bg-accent text-white' : 'bg-surface-sunk text-ink-soft',
+                splitMethod === m ? 'bg-accent text-on-accent' : 'bg-surface-sunk text-ink-soft',
               )}
             >
               {m}
@@ -469,7 +469,7 @@ export function AddExpenseForm({
                 onClick={() => setCommitmentMode(m)}
                 className={cn(
                   'rounded-full px-3 py-1 text-xs font-medium',
-                  commitmentMode === m ? 'bg-accent text-white' : 'bg-surface-sunk text-ink-soft',
+                  commitmentMode === m ? 'bg-accent text-on-accent' : 'bg-surface-sunk text-ink-soft',
                 )}
               >
                 {m === 'none' ? 'No link' : m === 'link' ? 'Link existing' : 'Create + pay'}

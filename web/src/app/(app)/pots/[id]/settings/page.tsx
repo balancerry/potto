@@ -1,9 +1,11 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { SettingsForm } from '@/components/pot/settings-form';
+import { SharePanel } from '@/components/pot/share-pot';
 import { canDeletePot, canEditPot } from '@/lib/core/logic/permissions';
 import { getActiveCategories } from '@/lib/core/logic/categories';
 import { getPotBundle } from '@/lib/queries/pots';
+import { getPotPublicShare } from '@/lib/queries/public-pot';
 
 export const metadata = { title: 'Pot settings' };
 
@@ -13,6 +15,8 @@ export default async function SettingsPage({ params }: { params: Promise<{ id: s
   if (!bundle) notFound();
 
   const admin = canEditPot(bundle.currentMember ?? undefined);
+  // If this lookup fails the panel loads (and can retry) on the client instead.
+  const share = await getPotPublicShare(id).catch(() => undefined);
 
   return (
     <div className="space-y-6">
@@ -26,6 +30,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ id: s
           .
         </p>
       </div>
+      <SharePanel potId={id} potName={bundle.pot.name} initial={share} className="max-w-lg" />
       <Link
         href={`/pots/${id}/settings/categories`}
         className="flex max-w-lg items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-line bg-surface px-4 py-3 hover:bg-surface-sunk/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"

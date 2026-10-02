@@ -9,7 +9,7 @@ export default function LoginPage() {
     <main className="relative flex min-h-screen items-center justify-center px-4 py-16">
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--accent-soft),_transparent_55%),linear-gradient(180deg,_var(--paper),_#ebe6da)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--accent-soft),_transparent_55%),linear-gradient(180deg,_var(--paper),_var(--paper-deep))]"
       />
       <div className="relative z-10 flex w-full max-w-md flex-col items-center gap-8">
         <BrandMark subtitle="Shared money, clearly settled." />

@@ -54,3 +54,5 @@ Complete feature list derived from `src/app/` and `PottoStore`. Web parity statu
 | Notifications | `/notifications` | bell in app shell |
 | Pinned / recently visited pots | `HomeScreen` | `your-pots-dashboard` |
 | Owner role | `MemberRole = 'owner'` | same |
+| Public read-only pot link | `shared/[token]`, `pot/[id]/share` | `/pot/[token]`, Share dialog, Settings card |
+| Light / Dark / System theme | `/appearance` | user menu → Appearance |

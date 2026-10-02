@@ -94,7 +94,7 @@ export function SplitSelector({
                     backgroundColor: selected ? colors.accent : 'transparent',
                   },
                 ]}>
-                {selected && <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>{'✓'}</Text>}
+                {selected && <Text style={{ color: colors.onAccent, fontSize: 13, fontWeight: '700' }}>{'✓'}</Text>}
               </View>
               <Text style={[styles.memberName, { color: colors.ink }]}>{m.name}</Text>
               {selected && method === 'custom' && (

@@ -50,7 +50,7 @@ export function RecordPaymentModal({
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.backdrop}>
+        style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
         <Pressable style={styles.backdropFill} onPress={onCancel} />
         <View style={[styles.card, { backgroundColor: colors.surface }]}>
           <Text style={[styles.title, { color: colors.ink }]}>Settlement</Text>
@@ -127,7 +127,6 @@ export function RecordPaymentModal({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(20,18,14,0.45)',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,

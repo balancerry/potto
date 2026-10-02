@@ -24,7 +24,7 @@ export function Button({ label, onPress, variant = 'primary', disabled, loading,
   const fg = {
     primary: colors.paper,
     secondary: colors.ink,
-    accent: '#fff',
+    accent: colors.onAccent,
     danger: colors.neg,
     ghost: colors.inkSoft,
   }[variant];

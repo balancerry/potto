@@ -1,6 +1,8 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Fraunces, Plus_Jakarta_Sans } from 'next/font/google';
-import { Toaster } from 'sonner';
+import { ThemeProvider } from '@/components/theme/theme-provider';
+import { ThemedToaster } from '@/components/theme/themed-toaster';
+import { THEME_INIT_SCRIPT } from '@/lib/theme';
 import './globals.css';
 
 const body = Plus_Jakarta_Sans({
@@ -18,6 +20,14 @@ const display = Fraunces({
   style: ['normal'],
   axes: ['opsz', 'SOFT', 'WONK'],
 });
+
+// Browser chrome (mobile address bar) follows the OS; the page itself follows the Theme setting.
+export const viewport: Viewport = {
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#f5f0e4' },
+    { media: '(prefers-color-scheme: dark)', color: '#17160f' },
+  ],
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.trypotto.in'),
@@ -53,10 +63,16 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${body.variable} ${display.variable} h-full`}>
+    // suppressHydrationWarning: the inline theme script sets data-theme on <html> before React hydrates.
+    <html lang="en" className={`${body.variable} ${display.variable} h-full`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="min-h-full antialiased">
-        {children}
-        <Toaster richColors position="top-center" closeButton />
+        <ThemeProvider>
+          {children}
+          <ThemedToaster />
+        </ThemeProvider>
       </body>
     </html>
   );

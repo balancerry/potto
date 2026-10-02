@@ -50,7 +50,7 @@ function avatarTone(name: string): string {
   // Cycle through Potto's own palette only — no semantic (pos/neg) colors here,
   // those are reserved for balance states, not decorative member identity.
   const tones = [
-    'bg-accent text-white',
+    'bg-accent text-on-accent',
     'bg-accent-soft text-accent',
     'bg-gold-soft text-gold',
     'bg-ink text-paper',
@@ -230,7 +230,7 @@ export function PotCard({
           prefetch
           className={cn(
             'inline-flex h-10 w-full items-center justify-center gap-2 rounded-[var(--radius-md)] border-[1.5px] border-accent/60 bg-surface text-sm font-semibold text-accent transition-colors',
-            'hover:border-accent hover:bg-accent hover:text-white',
+            'hover:border-accent hover:bg-accent hover:text-on-accent',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30',
           )}
         >

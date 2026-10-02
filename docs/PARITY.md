@@ -2,7 +2,7 @@
 
 Both apps are Supabase-backed and call the same RPCs and tables. Domain logic is duplicated (see [SHARED_CORE_PROPOSAL.md](SHARED_CORE_PROPOSAL.md)).
 
-Last reviewed: 2026-10-01.
+Last reviewed: 2026-10-02.
 
 | Feature | Mobile | Web | Notes |
 |---------|--------|-----|-------|
@@ -33,6 +33,9 @@ Last reviewed: 2026-10-01.
 | Delete pot | Home screen | Settings (`canDelete`) | Same RPC `delete_pot`, different entry point |
 | Summary / export | `summary` | `summary` | expo-print vs browser print; same HTML generator |
 | Notifications | `/notifications` + realtime | Bell + realtime | |
+| Public read-only pot link (viewer) | `shared/[token]` (rewritten from `…/pot/<token>`) | `/pot/[token]` | Anonymous; RPC `get_public_pot`. See [PUBLIC_SHARING.md](PUBLIC_SHARING.md) |
+| Public link controls | Pot ⋯ → Share pot, Settings → Public link (`pot/[id]/share`) | Header **Share** dialog + card on Settings | Owner/admin toggle; members can copy |
+| Theme (Light / Dark / System) | `/appearance` (home top bar): Light, Dark or System | Header icon next to the bell: one-click light/dark | Same tokens; see [THEME.md](THEME.md). Web has no way back to System once toggled |
 
 ## Intentional differences
 
@@ -41,6 +44,9 @@ Last reviewed: 2026-10-01.
 3. **Help / FAQ** — web only (`/help`).
 4. **Realtime scope** — web subscribes per pot (`pot-realtime`); mobile subscribes to the whole workspace.
 5. **Delete pot entry point** — see table.
+6. **Share via** — web falls back to WhatsApp when the browser has no share sheet; mobile always uses the system share sheet.
+7. **Theme storage** — web `localStorage` (`potto-theme`), mobile AsyncStorage (`potto.theme`).
+8. **Public link route** — web serves `/pot/<token>` directly; mobile rewrites it to `/shared/<token>` because `/pot/<id>` is already the signed-in pot screen.
 
 ## Known gaps
 

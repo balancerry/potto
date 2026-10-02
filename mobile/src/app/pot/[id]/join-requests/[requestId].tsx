@@ -304,7 +304,7 @@ function ModeTab({
       style={[
         styles.modeTab,
         {
-          color: active ? '#fff' : colors.ink,
+          color: active ? colors.paper : colors.ink,
           backgroundColor: active ? colors.ink : colors.surface,
           borderColor: colors.line,
           opacity: disabled ? 0.45 : 1,

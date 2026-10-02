@@ -788,7 +788,7 @@ function ReceivedAs({
             onClick={() => onChange(option)}
             className={cn(
               'h-11 flex-1 rounded-[var(--radius-md)] border text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
-              via === option ? 'border-accent bg-accent text-white' : 'border-line bg-surface text-ink',
+              via === option ? 'border-accent bg-accent text-on-accent' : 'border-line bg-surface text-ink',
             )}
           >
             {option === 'online' ? 'Online' : 'Cash'}
@@ -901,7 +901,7 @@ function Segmented<T extends string>({
           onClick={() => onChange(option.value)}
           className={cn(
             'h-11 flex-1 rounded-[var(--radius-md)] border text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
-            value === option.value ? 'border-accent bg-accent text-white' : 'border-line bg-surface text-ink',
+            value === option.value ? 'border-accent bg-accent text-on-accent' : 'border-line bg-surface text-ink',
           )}
         >
           {option.label}

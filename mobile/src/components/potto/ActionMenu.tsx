@@ -39,7 +39,7 @@ export function ActionMenu({ items }: { items: ActionMenuItem[] }) {
       </Pressable>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
+        <Pressable style={[styles.backdrop, { backgroundColor: colors.overlay }]} onPress={() => setOpen(false)}>
           <View style={[styles.menuWrap, { top: anchor.top, right: anchor.right }]}>
             <View style={[styles.menu, { backgroundColor: colors.surface, borderColor: colors.line }]}>
               {items.map((item, i) => (
@@ -77,7 +77,6 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(20,18,14,0.35)',
   },
   menuWrap: {
     position: 'absolute',

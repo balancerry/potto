@@ -45,6 +45,7 @@ export default function PotSettingsScreen() {
           <Text style={{ color: colors.ink, fontSize: 16 }}>{manager?.name ?? 'Not assigned'}</Text>
           <Text style={{ color: colors.inkSoft, marginTop: 8 }}>Pool Bank and Pool Cash hold this pot&apos;s money.</Text>
           <CategoriesLink potId={id} count={activeCategoryCount} />
+          <ShareLink potId={id} />
         </View>
       </SafeAreaView>
     );
@@ -109,6 +110,7 @@ export default function PotSettingsScreen() {
         </View>
 
         <CategoriesLink potId={id} count={activeCategoryCount} />
+        <ShareLink potId={id} />
 
         <View style={{ marginTop: 24 }}>
           <Text style={[styles.label, { color: colors.inkSoft }]}>POOL MANAGEMENT</Text>
@@ -172,6 +174,28 @@ function CategoriesLink({ potId, count }: { potId: string; count: number }) {
           <Text style={{ color: colors.ink, fontSize: 15, fontWeight: '600' }}>Categories</Text>
           <Text style={{ color: colors.inkSoft, fontSize: 12.5, marginTop: 2 }}>
             {count} active · Customize how expenses are organized
+          </Text>
+        </View>
+        <Text style={{ color: colors.inkSoft, fontSize: 18 }}>{'›'}</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+/** Entry point to the Share Pot screen: the public read-only link. Everyone can open it; only admins can change it. */
+function ShareLink({ potId }: { potId: string }) {
+  const colors = usePottoColors();
+  return (
+    <View style={{ marginTop: 24 }}>
+      <Text style={[styles.label, { color: colors.inkSoft }]}>SHARING</Text>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => router.push(`/pot/${potId}/share`)}
+        style={[styles.linkRow, { borderColor: colors.line, backgroundColor: colors.surface }]}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: colors.ink, fontSize: 15, fontWeight: '600' }}>Public link</Text>
+          <Text style={{ color: colors.inkSoft, fontSize: 12.5, marginTop: 2 }}>
+            Let anyone view this pot, read-only, without joining
           </Text>
         </View>
         <Text style={{ color: colors.inkSoft, fontSize: 18 }}>{'›'}</Text>

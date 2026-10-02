@@ -16,7 +16,7 @@ export function Avatar({ name, size = 44, admin = false }: { name: string; size?
           backgroundColor: admin ? colors.gold : colors.accentSoft,
         },
       ]}>
-      <Text style={{ color: admin ? '#fff' : colors.accent, fontWeight: '700', fontSize: size * 0.36 }}>
+      <Text style={{ color: admin ? colors.onGold : colors.accent, fontWeight: '700', fontSize: size * 0.36 }}>
         {initials(name)}
       </Text>
     </View>

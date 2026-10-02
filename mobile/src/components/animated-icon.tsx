@@ -1,17 +1,15 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { PottoPalette } from '@/constants/potto-theme';
+import { usePottoColors } from '@/constants/potto-theme';
 
-const WORDMARK = PottoPalette.light.accent;
-const TAGLINE = '#5F6F66';
-
-/** Brand lockup used on launch splash / auth boot gate. */
+/** Brand lockup used on launch splash / auth boot gate. Follows the active theme. */
 export function BrandSplashLockup() {
+  const colors = usePottoColors();
   return (
     <View style={styles.lockup}>
-      <Text style={styles.wordmark}>potto</Text>
-      <Text style={styles.tagline}>Your group. Your money. One Pot.</Text>
-      <View style={styles.dash} />
+      <Text style={[styles.wordmark, { color: colors.accent }]}>potto</Text>
+      <Text style={[styles.tagline, { color: colors.inkSoft }]}>Your group. Your money. One Pot.</Text>
+      <View style={[styles.dash, { backgroundColor: colors.accent }]} />
     </View>
   );
 }
@@ -30,7 +28,6 @@ const styles = StyleSheet.create({
     fontSize: 48,
     fontWeight: '800',
     letterSpacing: -1,
-    color: WORDMARK,
     textTransform: 'lowercase',
   },
   tagline: {
@@ -38,7 +35,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '400',
     letterSpacing: 0.2,
-    color: TAGLINE,
     textAlign: 'center',
   },
   dash: {
@@ -46,6 +42,5 @@ const styles = StyleSheet.create({
     width: 36,
     height: 5,
     borderRadius: 999,
-    backgroundColor: WORDMARK,
   },
 });

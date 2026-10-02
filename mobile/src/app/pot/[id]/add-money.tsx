@@ -401,7 +401,7 @@ function Checkbox({ checked }: { checked: boolean }) {
         styles.checkbox,
         { borderColor: checked ? colors.accent : colors.line, backgroundColor: checked ? colors.accent : 'transparent' },
       ]}>
-      {checked && <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>{'✓'}</Text>}
+      {checked && <Text style={{ color: colors.onAccent, fontSize: 13, fontWeight: '700' }}>{'✓'}</Text>}
     </View>
   );
 }

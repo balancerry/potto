@@ -1,8 +1,11 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
 
-// Auth pages that must work without a session (or before callback completes).
-const PUBLIC_PREFIXES = ['/login', '/auth/callback'];
+// Pages that must work without a session (or before callback completes).
+// '/pot/' is the read-only public share viewer (/pot/<token>). The trailing slash is
+// load-bearing: matching '/pot' by prefix would also open the authenticated '/pots/...'.
+// '/.well-known/' serves the app-link verification files that iOS/Android fetch signed out.
+const PUBLIC_PREFIXES = ['/login', '/auth/callback', '/pot/', '/.well-known/'];
 
 // Authenticated onboarding pages that must NOT bounce to home via the /login rule.
 const AUTH_FLOW_PREFIXES = ['/auth/complete-signup', '/auth/reset-password', '/auth/set-password'];

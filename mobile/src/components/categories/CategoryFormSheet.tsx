@@ -69,7 +69,7 @@ function CategoryForm({
   return (
     <>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.fill}>
-        <Pressable style={styles.backdrop} onPress={onClose} />
+        <Pressable style={[styles.backdrop, { backgroundColor: colors.overlay }]} onPress={onClose} />
         <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
           <View style={[styles.grabber, { backgroundColor: colors.line }]} />
           <Text style={[styles.title, { color: colors.ink }]}>{category ? 'Edit category' : 'Create category'}</Text>
@@ -156,7 +156,7 @@ function CategoryForm({
 const styles = StyleSheet.create({
   fill: { flex: 1, justifyContent: 'flex-end' },
   flex: { flex: 1 },
-  backdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(20,18,14,0.45)' },
+  backdrop: { ...StyleSheet.absoluteFill },
   sheet: {
     maxHeight: '88%',
     borderTopLeftRadius: Radius.xl,

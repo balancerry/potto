@@ -1,5 +1,6 @@
 import { cache } from 'react';
 import { createServerClient } from '@supabase/ssr';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { supabaseEnv } from './env';
 
@@ -57,3 +58,15 @@ export const getAuthUser = cache(async (): Promise<AuthUser | null> => {
     metadataName: typeof name === 'string' ? name : null,
   };
 });
+
+/**
+ * Cookie-less client that always acts as the anonymous role. Used for public
+ * pages as a fallback when a visitor's stale session cookie is rejected, so a
+ * bad cookie can never stop a public link from opening.
+ */
+export function createAnonClient() {
+  const { url, anonKey } = supabaseEnv();
+  return createSupabaseClient(url, anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
+}

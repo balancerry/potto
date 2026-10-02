@@ -29,7 +29,7 @@ Both clients share the same data model and permission rules. Mobile currently st
 | Server actions | Validated mutations → Supabase |
 | RLS / RPCs | Authorization + atomic multi-step writes |
 | `lib/core/logic` | Pure accounting / commitments / invites (same rules as mobile) |
-| Middleware | Session refresh + redirect unauthenticated users |
+| Middleware (`proxy.ts`) | Session refresh + redirect unauthenticated users. `/login`, `/auth/callback`, the public viewer `/pot/<token>` and `/.well-known/*` are open to signed-out visitors |
 
 ## Auth
 
@@ -57,5 +57,7 @@ All amounts are integer **paise**. UI accepts rupees and converts with `toPaise`
 | `approve_join_request` / `reject_join_request` | Atomic admin review |
 | `create_commitment` / `update_commitment` / `cancel_commitment` | Planned payments (no money movement) |
 | `resolve_invite_code` / `resolve_join_code` | Safe public pot summary for join flows |
+| `get_public_pot` | Sanitized read-only pot snapshot for a public share token (anon-callable) |
+| `enable_pot_public_share` / `disable_pot_public_share` / `get_pot_public_share` | Owner/admin turns the public link on/off; members read its state |
 
 Expense + commitment payment linking is done in server actions (tx + splits + `commitment_payments`) so FK cascade stays consistent.

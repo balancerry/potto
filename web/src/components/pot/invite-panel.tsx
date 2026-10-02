@@ -40,6 +40,7 @@ export function InvitePanel({ pot, isAdmin }: { pot: Pot; isAdmin: boolean }) {
       <CardTitle>Join code & QR</CardTitle>
       <CardDescription>Share the code or QR so people can request to join.</CardDescription>
       <div className="mt-4 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
+        {/* Always white: QR scanners need a light quiet zone, in both themes. */}
         <div className="rounded-[var(--radius-md)] border border-line bg-white p-3">
           <QRCodeSVG value={buildJoinCodePayload(pot.joinCode)} size={140} />
         </div>

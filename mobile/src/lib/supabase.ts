@@ -82,3 +82,11 @@ export const MOBILE_AUTH_CALLBACK = 'potto://auth/callback';
 export function siteUrl(): string {
   return (process.env.EXPO_PUBLIC_SITE_URL ?? 'http://localhost:3000').replace(/\/$/, '');
 }
+
+/**
+ * Origin of the shareable web links (`<origin>/pot/<token>`). Falls back to the production
+ * site so a missing env var can never produce a localhost link in a shared message.
+ */
+export function publicSiteOrigin(): string {
+  return (process.env.EXPO_PUBLIC_SITE_URL || 'https://www.trypotto.in').replace(/\/+$/, '');
+}

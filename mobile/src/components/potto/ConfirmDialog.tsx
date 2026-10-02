@@ -27,7 +27,7 @@ export function ConfirmDialog({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
-      <Pressable style={styles.backdrop} onPress={onCancel}>
+      <Pressable style={[styles.backdrop, { backgroundColor: colors.overlay }]} onPress={onCancel}>
         <Pressable style={[styles.card, { backgroundColor: colors.surface }]} onPress={() => {}}>
           <Text style={[styles.title, { color: colors.ink }]}>{title}</Text>
           <Text style={[styles.message, { color: colors.inkSoft }]}>{message}</Text>
@@ -40,7 +40,7 @@ export function ConfirmDialog({
             <Pressable
               onPress={onConfirm}
               style={[styles.btn, { backgroundColor: destructive ? colors.neg : colors.ink }]}>
-              <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14.5 }}>{confirmLabel}</Text>
+              <Text style={{ color: destructive ? colors.onNeg : colors.paper, fontWeight: '600', fontSize: 14.5 }}>{confirmLabel}</Text>
             </Pressable>
           </View>
         </Pressable>
@@ -52,7 +52,6 @@ export function ConfirmDialog({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(20,18,14,0.45)',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,

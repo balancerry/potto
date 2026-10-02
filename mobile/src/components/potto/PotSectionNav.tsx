@@ -32,7 +32,7 @@ export function PotSectionNav({ potId, current }: { potId: string; current: (typ
               styles.tab,
               { backgroundColor: selected ? colors.accent : 'transparent' },
             ]}>
-            <Text style={{ color: selected ? '#fff' : colors.inkSoft, fontSize: 14, fontWeight: '600' }}>{tab.label}</Text>
+            <Text style={{ color: selected ? colors.onAccent : colors.inkSoft, fontSize: 14, fontWeight: '600' }}>{tab.label}</Text>
           </Pressable>
         );
       })}

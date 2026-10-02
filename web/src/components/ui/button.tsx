@@ -6,10 +6,10 @@ type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'outline';
 type Size = 'sm' | 'md' | 'lg';
 
 const variants: Record<Variant, string> = {
-  primary: 'bg-accent text-white hover:bg-accent/90 shadow-sm',
+  primary: 'bg-accent text-on-accent hover:bg-accent/90 shadow-sm',
   secondary: 'bg-accent-soft text-accent hover:bg-accent-soft/80',
   ghost: 'bg-transparent text-ink hover:bg-surface-sunk',
-  danger: 'bg-neg text-white hover:bg-neg/90',
+  danger: 'bg-neg text-on-neg hover:bg-neg/90',
   outline: 'border border-line bg-surface text-ink hover:bg-surface-sunk',
 };
 

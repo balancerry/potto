@@ -118,6 +118,7 @@ export default function PotDashboardScreen() {
   const menuItems = [
     { label: 'Planned payments', onPress: () => router.push(`/pot/${id}/commitments`) },
     { label: 'Invite people', onPress: () => router.push(`/pot/${id}/invite`) },
+    { label: 'Share pot', onPress: () => router.push(`/pot/${id}/share`) },
     { label: 'Summary', onPress: () => router.push(`/pot/${id}/summary`) },
     { label: 'Pool management', onPress: () => router.push(`/pot/${id}/pool`) },
     { label: 'Pot settings', onPress: () => router.push(`/pot/${id}/settings`) },

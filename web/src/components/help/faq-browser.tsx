@@ -135,7 +135,7 @@ export function FaqBrowser() {
               }}
               className={cn(
                 'shrink-0 rounded-[10px] border px-3 py-1.5 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30',
-                selected ? 'border-accent bg-accent text-white' : 'border-line bg-surface text-ink-soft hover:text-ink',
+                selected ? 'border-accent bg-accent text-on-accent' : 'border-line bg-surface text-ink-soft hover:text-ink',
               )}
             >
               {item}

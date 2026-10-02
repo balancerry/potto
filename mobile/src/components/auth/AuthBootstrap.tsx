@@ -4,7 +4,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { InteractionManager, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BrandSplashLockup } from '@/components/animated-icon';
-import { PottoPalette, usePottoColors } from '@/constants/potto-theme';
+import { usePottoColors } from '@/constants/potto-theme';
 import { useAuth } from '@/store/AuthContext';
 import { usePottoStore } from '@/store/PottoStore';
 
@@ -28,6 +28,9 @@ export function AuthBootstrap({ children }: { children: React.ReactNode }) {
   const navReady = !!navState?.key;
   const root = typeof segments[0] === 'string' ? segments[0] : '';
   const inAuthGroup = root === '(auth)' || root === 'auth';
+  // Routes that must open with no account and no login redirect: the read-only shared pot
+  // (/shared/<token>) and the theme screen it links to. Neither shows private data.
+  const inPublicRoute = root === 'shared' || root === 'appearance';
   const authScreen = typeof segments[1] === 'string' ? segments[1] : '';
   const allowWhileAuthed =
     authScreen === 'complete-signup' ||
@@ -89,7 +92,7 @@ export function AuthBootstrap({ children }: { children: React.ReactNode }) {
     if (authLoading || !navReady) return;
 
     if (!session) {
-      if (!inAuthGroup) {
+      if (!inAuthGroup && !inPublicRoute) {
         router.replace('/(auth)/login');
       }
       return;
@@ -98,13 +101,13 @@ export function AuthBootstrap({ children }: { children: React.ReactNode }) {
     if (inAuthGroup && !allowWhileAuthed && state.ready) {
       router.replace('/');
     }
-  }, [authLoading, navReady, session, inAuthGroup, allowWhileAuthed, state.ready, router]);
+  }, [authLoading, navReady, session, inAuthGroup, inPublicRoute, allowWhileAuthed, state.ready, router]);
 
   const destinationReady =
     !authLoading &&
     navReady &&
     !bootError &&
-    ((!session && inAuthGroup) || (!!session && state.ready && (!inAuthGroup || allowWhileAuthed)));
+    ((!session && (inAuthGroup || inPublicRoute)) || (!!session && state.ready && (!inAuthGroup || allowWhileAuthed)));
 
   useEffect(() => {
     if (!destinationReady) {
@@ -151,7 +154,7 @@ export function AuthBootstrap({ children }: { children: React.ReactNode }) {
     <View style={styles.root}>
       {children}
       {splashVisible ? (
-        <View style={[styles.splashOverlay, { backgroundColor: PottoPalette.light.paper }]} pointerEvents="auto">
+        <View style={[styles.splashOverlay, { backgroundColor: colors.paper }]} pointerEvents="auto">
           <BrandSplashLockup />
         </View>
       ) : null}
@@ -163,7 +166,7 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   boot: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   splashOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1000,

@@ -208,7 +208,7 @@ function EditMemberModal({
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.modalBackdrop} onPress={onClose}>
+      <Pressable style={[styles.modalBackdrop, { backgroundColor: colors.overlay }]} onPress={onClose}>
         <Pressable
           style={[styles.modalCard, { backgroundColor: colors.surface, borderColor: colors.line }]}
           onPress={(e) => e.stopPropagation()}>
@@ -249,7 +249,7 @@ function EditMemberModal({
                       backgroundColor: role === r ? colors.ink : colors.surfaceSunk,
                     },
                   ]}>
-                  <Text style={{ color: role === r ? '#fff' : colors.ink, fontWeight: '700', fontSize: 13, textTransform: 'capitalize' }}>
+                  <Text style={{ color: role === r ? colors.paper : colors.ink, fontWeight: '700', fontSize: 13, textTransform: 'capitalize' }}>
                     {r}
                   </Text>
                 </Pressable>
@@ -281,7 +281,7 @@ function EditMemberModal({
                     ]}>
                     <Text
                       style={{
-                        color: (role === 'admin' ? 'member' : accessLevel) === opt.value ? '#fff' : colors.ink,
+                        color: (role === 'admin' ? 'member' : accessLevel) === opt.value ? colors.paper : colors.ink,
                         fontWeight: '700',
                         fontSize: 13,
                       }}>
@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
   grow: { flex: 1 },
   menuAnchor: { paddingRight: 14 },
   hint: { fontSize: 12.5, paddingHorizontal: 20, paddingTop: 14, lineHeight: 18 },
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(20,18,14,0.4)', justifyContent: 'center', padding: 20 },
+  modalBackdrop: { flex: 1, justifyContent: 'center', padding: 20 },
   modalCard: { borderRadius: Radius.lg, borderWidth: 1, padding: 18 },
   modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 14 },
   fieldLabel: { fontSize: 12, fontWeight: '600', letterSpacing: 0.4, textTransform: 'uppercase', marginBottom: 8, marginTop: 10 },

@@ -1,5 +1,18 @@
-import { Platform, useColorScheme } from 'react-native';
+import { Platform } from 'react-native';
 
+import { useResolvedScheme } from '@/hooks/use-resolved-scheme';
+
+/**
+ * Semantic color tokens. Mapping to the generic names used in the design brief:
+ *   background -> paper         surface -> surface        surfaceSecondary -> surfaceSunk
+ *   textPrimary -> ink          textSecondary -> inkSoft  border -> line
+ *   primary -> accent           success -> pos            warning -> gold
+ *   danger -> neg               icon -> inkSoft           overlay -> overlay
+ * `on*` tokens are the text/icon color that sits ON a solid fill of that color.
+ *
+ * Web uses the same values as CSS variables in web/src/app/globals.css; the
+ * theme-parity test fails if the two drift.
+ */
 const light = {
   ink: '#23211D',
   inkSoft: '#655F52',
@@ -15,6 +28,10 @@ const light = {
   negSoft: '#FBEAE1',
   gold: '#C08A2E',
   goldSoft: '#F1E1BC',
+  onAccent: '#FFFFFF',
+  onNeg: '#FFFFFF',
+  onGold: '#FFFFFF',
+  overlay: 'rgba(20,18,14,0.45)',
 };
 
 const dark = {
@@ -32,10 +49,14 @@ const dark = {
   negSoft: '#33201A',
   gold: '#D9AE5C',
   goldSoft: '#3A2F16',
+  onAccent: '#10231A',
+  onNeg: '#2A120A',
+  onGold: '#2A1D05',
+  overlay: 'rgba(0,0,0,0.6)',
 };
 
 export const PottoPalette = { light, dark };
-export type PottoColors = typeof light;
+export type PottoColors = Record<keyof typeof light, string>;
 
 export const Radius = { sm: 9, md: 14, lg: 20, xl: 24, pill: 999 };
 export const Space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24, xxxl: 32 };
@@ -47,6 +68,5 @@ export const PottoFonts = Platform.select({
 })!;
 
 export function usePottoColors(): PottoColors {
-  const scheme = useColorScheme();
-  return scheme === 'dark' ? dark : light;
+  return useResolvedScheme() === 'dark' ? dark : light;
 }

@@ -63,7 +63,7 @@ export function PotNav({ potId }: { potId: string }) {
             aria-current={active ? 'page' : undefined}
             className={cn(
               'shrink-0 rounded-[var(--radius-sm)] px-3 py-1.5 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
-              active ? 'bg-accent text-white' : 'text-ink-soft hover:bg-surface-sunk hover:text-ink',
+              active ? 'bg-accent text-on-accent' : 'text-ink-soft hover:bg-surface-sunk hover:text-ink',
             )}
           >
             <NavLinkLabel label={link.label} icon={link.icon} />
@@ -76,7 +76,7 @@ export function PotNav({ potId }: { potId: string }) {
         aria-current={moreActive ? 'page' : undefined}
         className={cn(
           'shrink-0 rounded-[var(--radius-sm)] px-3 py-1.5 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
-          moreActive ? 'bg-accent text-white' : 'text-ink-soft hover:bg-surface-sunk hover:text-ink',
+          moreActive ? 'bg-accent text-on-accent' : 'text-ink-soft hover:bg-surface-sunk hover:text-ink',
         )}
       >
         <NavLinkLabel label="More" icon={MoreHorizontal} />

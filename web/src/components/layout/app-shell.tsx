@@ -3,6 +3,7 @@ import Image from 'next/image';
 import pottoIcon from '@/assets/web-icon-assets/icon-192.png';
 import { NotificationBell } from '@/components/layout/notification-bell';
 import { UserMenu } from '@/components/layout/user-menu';
+import { ThemeToggleButton } from '@/components/theme/theme-toggle-button';
 
 export function AppShell({
   children,
@@ -22,6 +23,7 @@ export function AppShell({
             Potto
           </Link>
           <div className="flex items-center gap-1 sm:gap-2">
+            <ThemeToggleButton />
             <NotificationBell />
             <UserMenu userName={userName} userEmail={userEmail} />
           </div>

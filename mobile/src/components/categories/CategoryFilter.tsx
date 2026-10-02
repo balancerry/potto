@@ -71,7 +71,7 @@ export function CategoryFilter({
       </Pressable>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
+        <Pressable style={[styles.backdrop, { backgroundColor: colors.overlay }]} onPress={() => setOpen(false)}>
           <Pressable style={[styles.card, { backgroundColor: colors.surface }]} onPress={() => {}}>
             <ScrollView bounces={false}>
               {renderRow(CATEGORY_FILTER_ALL, 'All categories')}
@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.pill,
     borderWidth: 1,
   },
-  backdrop: { flex: 1, backgroundColor: 'rgba(20,18,14,0.45)', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  backdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   card: { width: '100%', maxWidth: 360, maxHeight: '70%', borderRadius: Radius.lg, overflow: 'hidden' },
   item: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 14, paddingHorizontal: 18, borderBottomWidth: StyleSheet.hairlineWidth },
   itemIcon: { width: 18, alignItems: 'center' },

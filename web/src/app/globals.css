@@ -15,6 +15,13 @@
   --neg-soft: #fbeae1;
   --gold: #c08a2e;
   --gold-soft: #f1e1bc;
+  /* Text/icon color that sits ON a solid accent / neg fill (buttons, active tabs, badges). */
+  --on-accent: #ffffff;
+  --on-neg: #ffffff;
+  /* Far end of the auth-page gradient and the dimmed backdrop behind modals. */
+  --paper-deep: #ebe6da;
+  --scrim: rgb(0 0 0 / 0.4);
+  color-scheme: light;
   --radius-sm: 9px;
   --radius-md: 14px;
   --radius-lg: 20px;
@@ -39,6 +46,61 @@
   --text-money: 2.25rem;
 }
 
+/*
+ * Dark theme. Same semantic tokens as :root with dark values (shared with the
+ * mobile app: mobile/src/constants/potto-theme.ts). Keep the two copies below
+ * identical; a parity test in the mobile package enforces it.
+ *
+ * - data-theme="dark"   explicit user choice (Light/Dark/System toggle).
+ * - no data-theme       "System": follow the OS via prefers-color-scheme.
+ * - data-theme="light"  explicit light: neither rule below applies.
+ */
+:root[data-theme='dark'] {
+  --ink: #f2efe6;
+  --ink-soft: #a9a398;
+  --paper: #17160f;
+  --surface: #211f17;
+  --surface-sunk: #191811;
+  --line: #332f23;
+  --accent: #5ca98e;
+  --accent-soft: #213229;
+  --pos: #5fbf8f;
+  --pos-soft: #1b2e22;
+  --neg: #e08462;
+  --neg-soft: #33201a;
+  --gold: #d9ae5c;
+  --gold-soft: #3a2f16;
+  --on-accent: #10231a;
+  --on-neg: #2a120a;
+  --paper-deep: #100f0a;
+  --scrim: rgb(0 0 0 / 0.6);
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --ink: #f2efe6;
+    --ink-soft: #a9a398;
+    --paper: #17160f;
+    --surface: #211f17;
+    --surface-sunk: #191811;
+    --line: #332f23;
+    --accent: #5ca98e;
+    --accent-soft: #213229;
+    --pos: #5fbf8f;
+    --pos-soft: #1b2e22;
+    --neg: #e08462;
+    --neg-soft: #33201a;
+    --gold: #d9ae5c;
+    --gold-soft: #3a2f16;
+    --on-accent: #10231a;
+    --on-neg: #2a120a;
+    --paper-deep: #100f0a;
+    --scrim: rgb(0 0 0 / 0.6);
+    color-scheme: dark;
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -56,8 +118,97 @@
   --color-neg-soft: var(--neg-soft);
   --color-gold: var(--gold);
   --color-gold-soft: var(--gold-soft);
+  --color-on-accent: var(--on-accent);
+  --color-on-neg: var(--on-neg);
+  --color-paper-deep: var(--paper-deep);
+  --color-scrim: var(--scrim);
   --font-sans: var(--font-body);
   --font-display: var(--font-display);
+}
+
+/*
+ * Theme toggle (header button). The icon shows the CURRENT theme: sun in light, moon in dark.
+ * Both icons are always mounted, stacked in one box, so the header never shifts. Which one is
+ * "on" is pure CSS, driven by the same data-theme / prefers-color-scheme rules as the tokens,
+ * so the right icon is there on first paint and nothing animates on page load.
+ *
+ * On a switch the outgoing icon turns away and shrinks to 0.85 while fading out, and the
+ * incoming one turns in from the same direction and grows back to 1 (transform + opacity only).
+ */
+.theme-toggle-icon {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transform: rotate(-180deg) scale(0.85);
+  transition:
+    transform 350ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 250ms ease-in-out;
+}
+.theme-toggle-sun {
+  opacity: 1;
+  transform: rotate(0deg) scale(1);
+}
+:root[data-theme='dark'] .theme-toggle-sun {
+  opacity: 0;
+  transform: rotate(180deg) scale(0.85);
+}
+:root[data-theme='dark'] .theme-toggle-moon {
+  opacity: 1;
+  transform: rotate(0deg) scale(1);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .theme-toggle-sun {
+    opacity: 0;
+    transform: rotate(180deg) scale(0.85);
+  }
+  :root:not([data-theme]) .theme-toggle-moon {
+    opacity: 1;
+    transform: rotate(0deg) scale(1);
+  }
+}
+
+/*
+ * Interface cross-fade on a theme switch. ThemeProvider adds `theme-transition` to <html> for
+ * ~450ms around a user-initiated change, so ONLY colors animate, and only then: ordinary
+ * hover/focus behavior everywhere else is untouched. No layout property is listed, so nothing
+ * can move. The toggle's own icons are excluded so they keep their rotation/fade.
+ */
+html.theme-transition,
+html.theme-transition *:not(.theme-toggle-icon),
+html.theme-transition *:not(.theme-toggle-icon)::before,
+html.theme-transition *:not(.theme-toggle-icon)::after {
+  transition:
+    background-color 320ms ease-in-out,
+    border-color 320ms ease-in-out,
+    color 320ms ease-in-out,
+    fill 320ms ease-in-out,
+    stroke 320ms ease-in-out,
+    box-shadow 320ms ease-in-out,
+    outline-color 320ms ease-in-out,
+    text-decoration-color 320ms ease-in-out !important;
+}
+
+/* Reduced motion: no turning or scaling, just a short fade of icon and colors. */
+@media (prefers-reduced-motion: reduce) {
+  .theme-toggle-icon,
+  .theme-toggle-sun,
+  :root[data-theme='dark'] .theme-toggle-sun,
+  :root[data-theme='dark'] .theme-toggle-moon {
+    transform: none;
+    transition: opacity 120ms linear;
+  }
+  html.theme-transition,
+  html.theme-transition *:not(.theme-toggle-icon),
+  html.theme-transition *:not(.theme-toggle-icon)::before,
+  html.theme-transition *:not(.theme-toggle-icon)::after {
+    transition-duration: 120ms !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) and (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .theme-toggle-sun,
+  :root:not([data-theme]) .theme-toggle-moon {
+    transform: none;
+  }
 }
 
 body {

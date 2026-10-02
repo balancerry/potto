@@ -2,7 +2,7 @@ import { Redirect } from 'expo-router';
 import { View } from 'react-native';
 
 import { HomeScreen } from '@/components/home/HomeScreen';
-import { PottoPalette } from '@/constants/potto-theme';
+import { usePottoColors } from '@/constants/potto-theme';
 import { useAuth } from '@/store/AuthContext';
 
 /**
@@ -11,9 +11,10 @@ import { useAuth } from '@/store/AuthContext';
  */
 export default function Index() {
   const { session, loading } = useAuth();
+  const colors = usePottoColors();
 
   if (loading) {
-    return <View style={{ flex: 1, backgroundColor: PottoPalette.light.paper }} />;
+    return <View style={{ flex: 1, backgroundColor: colors.paper }} />;
   }
 
   if (!session) {

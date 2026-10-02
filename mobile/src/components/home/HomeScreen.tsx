@@ -8,6 +8,7 @@ import { PrimaryButton, SecondaryButton } from '@/components/potto/Button';
 import { ConfirmDialog } from '@/components/potto/ConfirmDialog';
 import { EmptyState } from '@/components/potto/EmptyState';
 import { PotCard } from '@/components/potto/PotCard';
+import { ThemeToggleButton } from '@/components/potto/ThemeToggleButton';
 import { PottoFonts, usePottoColors } from '@/constants/potto-theme';
 import { sortPotsByPinThenVisit, MAX_PINNED_POTS, type PotVisitMap } from '@/lib/recent-pots';
 import { fetchUserPotPrefs, pinPot, unpinPot } from '@/lib/user-pot-prefs';
@@ -146,11 +147,12 @@ export function HomeScreen() {
       <View style={styles.topbar}>
         <View style={styles.wordmark}>
           <View style={[styles.mark, { backgroundColor: colors.accent }]}>
-            <Text style={{ color: '#fff', fontWeight: '700' }}>{'₹'}</Text>
+            <Text style={{ color: colors.onAccent, fontWeight: '700' }}>{'₹'}</Text>
           </View>
           <Text style={[styles.wordmarkText, { color: colors.ink, fontFamily: displayFont }]}>Potto</Text>
         </View>
         <View style={styles.topbarActions}>
+          <ThemeToggleButton />
           <Pressable
             onPress={() => router.push('/notifications')}
             hitSlop={8}
@@ -159,7 +161,7 @@ export function HomeScreen() {
             <BellIcon color={colors.ink} />
             {unreadCount > 0 ? (
               <View style={[styles.badge, { backgroundColor: colors.accent }]}>
-                <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+                <Text style={[styles.badgeText, { color: colors.onAccent }]}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
               </View>
             ) : null}
           </Pressable>
@@ -275,7 +277,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
+  badgeText: { fontSize: 10, fontWeight: '700' },
   wordmark: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   mark: { width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   wordmarkText: { fontSize: 22, fontWeight: '600' },

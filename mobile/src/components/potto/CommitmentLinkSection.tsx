@@ -223,7 +223,7 @@ function CommitmentPreviewCard({
 }
 
 const styles = StyleSheet.create({
-  label: { fontSize: 12.5, fontWeight: '600', marginBottom: 6, color: '#6B6862' },
+  label: { fontSize: 12.5, fontWeight: '600', marginBottom: 6 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   pickList: { marginTop: 10, gap: 8 },
   pickRow: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: Radius.md, borderWidth: 1, padding: 12 },

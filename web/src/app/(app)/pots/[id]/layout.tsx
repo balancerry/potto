@@ -8,6 +8,7 @@ import { PotWayfinding } from '@/components/pot/pot-wayfinding';
 import { PotPageSkeleton } from '@/components/pot/pot-page-skeleton';
 import { PotRealtime } from '@/components/pot/pot-realtime';
 import { RecordPotVisit } from '@/components/pot/record-pot-visit';
+import { SharePotButton } from '@/components/pot/share-pot';
 import { Badge } from '@/components/ui/badge';
 import { getPotShell } from '@/lib/queries/pots';
 
@@ -47,6 +48,7 @@ export default async function PotLayout({
             </div>
             <p className="mt-1 text-sm text-ink-soft">{contextLine}</p>
           </div>
+          <SharePotButton potId={id} potName={pot.name} />
         </div>
         <PotNav potId={id} />
       </div>

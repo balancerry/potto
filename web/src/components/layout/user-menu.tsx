@@ -51,7 +51,7 @@ export function UserMenu({
       >
         <span
           aria-hidden
-          className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-semibold text-white"
+          className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-semibold text-on-accent"
         >
           {avatar}
         </span>

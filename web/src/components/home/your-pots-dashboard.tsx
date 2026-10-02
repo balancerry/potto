@@ -234,12 +234,12 @@ export function YourPotsDashboard({
                     className={cn(
                       'shrink-0 rounded-[10px] border px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30',
                       selected
-                        ? 'border-accent bg-accent text-white'
+                        ? 'border-accent bg-accent text-on-accent'
                         : 'border-line bg-paper text-ink-soft hover:border-accent/30 hover:text-ink',
                     )}
                   >
                     {label}
-                    <span className={cn('ml-1.5 tabular-nums', selected ? 'text-white/80' : 'text-ink-soft')}>
+                    <span className={cn('ml-1.5 tabular-nums', selected ? 'text-on-accent/80' : 'text-ink-soft')}>
                       ({count})
                     </span>
                   </button>

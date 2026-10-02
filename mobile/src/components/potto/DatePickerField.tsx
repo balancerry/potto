@@ -90,7 +90,7 @@ export function DatePickerField({ value, onChange }: DatePickerFieldProps) {
       </Pressable>
 
       <Modal visible={visible} transparent animationType="fade" onRequestClose={() => setVisible(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setVisible(false)}>
+        <Pressable style={[styles.backdrop, { backgroundColor: colors.overlay }]} onPress={() => setVisible(false)}>
           <Pressable style={[styles.card, { backgroundColor: colors.surface }]} onPress={() => {}}>
             <View style={styles.navRow}>
               <Pressable
@@ -167,7 +167,6 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(20,18,14,0.45)',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,

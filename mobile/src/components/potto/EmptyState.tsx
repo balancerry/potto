@@ -107,7 +107,7 @@ export function EmptyState({ icon, title, subtitle, actionLabel, onAction }: Emp
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}
           style={({ pressed }) => [styles.action, { backgroundColor: colors.accent, opacity: pressed ? 0.85 : 1 }]}>
-          <Text style={styles.actionLabel}>{actionLabel}</Text>
+          <Text style={[styles.actionLabel, { color: colors.onAccent }]}>{actionLabel}</Text>
         </Pressable>
       ) : isInteractive ? (
         <Text style={[styles.hint, { color: colors.accent }]}>Tap to get started →</Text>
@@ -138,6 +138,6 @@ const styles = StyleSheet.create({
   title: { fontSize: 17, fontWeight: '600', marginBottom: 4 },
   subtitle: { fontSize: 13.5, textAlign: 'center', lineHeight: 19 },
   action: { marginTop: 18, paddingVertical: 12, paddingHorizontal: 22, borderRadius: Radius.pill },
-  actionLabel: { color: '#fff', fontWeight: '600', fontSize: 14 },
+  actionLabel: { fontWeight: '600', fontSize: 14 },
   hint: { marginTop: 14, fontSize: 13.5, fontWeight: '600' },
 });

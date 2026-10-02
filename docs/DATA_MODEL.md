@@ -130,6 +130,23 @@ Pot-specific expense categories (migration `0018_pot_categories.sql`). Expenses 
 - **Migration of old data:** legacy text was mapped case-insensitively onto the defaults (`Stay`→Accommodation, `Miscellaneous`→Other, …); any other value a pot used (e.g. Groceries, Drinks, free text) became a custom category in that pot. Blank values stay `null` (Uncategorized).
 - **Future AI categorization:** suggest a `category_id` from the pot's active categories; never create names on the fly.
 
+### `pot_public_share`
+Public read-only share links (migration `0019_public_pot_sharing.sql`). Full design in [PUBLIC_SHARING.md](PUBLIC_SHARING.md).
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | |
+| pot_id | uuid → pots CASCADE | |
+| public_token | text UNIQUE | URL-safe random token (~244 bits); the only public identifier, never the pot id |
+| is_enabled | boolean | `true` while the link works |
+| created_by | uuid → users, nullable | `ON DELETE SET NULL` |
+| created_at | timestamptz | |
+| revoked_at | timestamptz nullable | Set exactly when `is_enabled` is false (CHECK) |
+
+- At most one live link per pot (partial unique index on `pot_id where is_enabled`); revoked rows are kept as history and their tokens never work again.
+- **RLS:** enabled, no policies; all privileges revoked from `anon`/`authenticated`. Access only through `get_public_pot`, `get_pot_public_share`, `enable_pot_public_share`, `disable_pot_public_share`.
+- No pot is shared until an owner/admin enables it.
+
 ### `commitment_payments`
 | Column | Type | Notes |
 |--------|------|-------|
@@ -171,4 +188,5 @@ users ──┬── pot_members ──┬── transactions ── transactio
         ├── join_requests ┘
         └── notifications
               pots ──────────┘
+              pots ── pot_public_share
 ```
